@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerGlobalShortcuts()
         ServicesProvider.register()
         URLSchemeHandler.register()
+        PendingCommandWatcher.shared.start()
         if AccessibilityHelper.isTrusted {
             RightClickMonitor.shared.start()
         }
