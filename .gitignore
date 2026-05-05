@@ -30,6 +30,11 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+build/
+DerivedData/
+
+# XcodeGen-generated project (regenerated from project.yml)
+NewKit.xcodeproj/
 
 # CocoaPods
 #

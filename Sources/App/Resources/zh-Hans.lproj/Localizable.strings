@@ -1,0 +1,126 @@
+/* Menu structure */
+"menu.header.newin"      = "在当前 Finder 文件夹新建";
+"menu.targetpath.prefix" = "📁";
+"menu.preferences"       = "偏好设置…";
+"menu.quit"              = "退出 NewKit";
+
+/* Settings window */
+"settings.window.title"          = "NewKit 偏好设置";
+"settings.tab.general"           = "通用";
+"settings.tab.filetypes"         = "文件类型";
+"settings.tab.templates"         = "模板";
+"settings.tab.shortcuts"         = "快捷键";
+
+/* Templates tab */
+"templates.empty"      = "在左侧选择一个文件类型以编辑其模板。";
+"templates.reset"      = "恢复默认";
+"templates.overridden" = "已自定义";
+"settings.tab.permissions"       = "权限";
+"settings.tab.logs"              = "日志";
+
+/* Logs tab */
+"logs.section"      = "本地日志";
+"logs.path.label"   = "目录：";
+"logs.reveal"       = "在 Finder 中显示";
+"logs.export"       = "导出 Zip 到桌面";
+"logs.error.empty"  = "暂无日志 — 先使用一下 App，再导出。";
+"logs.footer"       = "日志保存在本地，14 天后自动清理。不会上传任何内容。";
+"settings.tab.about"             = "关于";
+
+/* Right-click menu header */
+"menu.header.newhere" = "在此处新建";
+
+/* Permissions tab */
+"perm.acc.section"      = "辅助功能";
+"perm.acc.granted"      = "已授权 — Finder 右键功能已启用。";
+"perm.acc.missing"      = "未授权 — 右键触发功能不可用。";
+"perm.acc.request"      = "请求授权";
+"perm.acc.opensettings" = "打开系统设置";
+"perm.acc.footer"       = "按住 Control 键并在 Finder 中右键，即可弹出 NewKit 菜单。未授权时，菜单栏图标、快捷键、浮动面板仍可正常使用。";
+
+/* Shortcuts */
+"shortcuts.toggle.label"  = "唤起浮动新建面板";
+"shortcuts.footer"        = "点击录制快捷键，或点 × 清空。避免使用 IDE 已占用的键（如 F8）。";
+
+/* Floating panel */
+"floating.title" = "在当前文件夹新建";
+"floating.hint"  = "按 Esc 关闭 · 点击图标创建";
+"settings.postcreate.section"    = "新建后的行为";
+"settings.postcreate.label"      = "操作";
+"settings.postcreate.footer"     = "如果某些 IDE 拦截了 Return 键，重命名可能不会触发。请在 系统设置 → 隐私与安全性 → 辅助功能 中授权 NewKit。";
+"settings.author.section"        = "模板";
+"settings.author.label"          = "作者";
+"settings.author.footer"         = "用于填充模板里的 {{author}} 占位符。";
+"settings.menubar.section"       = "菜单栏";
+"settings.menubar.label"         = "在菜单栏显示 NewKit 图标";
+"settings.menubar.footer"        = "隐藏后可双击应用程序中的 NewKit 重新打开此窗口。Finder 右键菜单、工具栏按钮、全局快捷键依然可用。";
+"custom.template.variables"      = "可用变量：{{date}} {{time}} {{datetime}} {{year}} {{filename}} {{author}}";
+"settings.filetypes.hint"        = "勾选显示、拖动排序、或添加自定义类型。内置类型可隐藏，但不能删除。";
+"settings.filetypes.custombadge" = "自定义";
+
+/* Custom type editor */
+"custom.title.create"    = "新增自定义文件类型";
+"custom.title.edit"      = "编辑自定义文件类型";
+"custom.name"            = "显示名称";
+"custom.extension"       = "扩展名（不含点）";
+"custom.symbol"          = "SF Symbol 名称";
+"custom.template"        = "模板内容（可选）";
+"custom.defaultname"     = "新建文件";
+"common.cancel"          = "取消";
+"common.save"            = "保存";
+"post.reveal"                    = "在 Finder 中显示并重命名";
+"post.open"                      = "用默认应用打开";
+"about.tagline"                  = "macOS 上的快速新建文件工具。";
+"about.openonboarding"           = "重新查看引导";
+
+/* Onboarding */
+"onboarding.window.title"   = "欢迎使用 NewKit";
+"onboarding.title"          = "欢迎使用 NewKit";
+"onboarding.welcome.body"   = "在 Finder 任意位置即时新建文件。一共有 4 个入口：";
+"onboarding.feature.menubar"   = "菜单栏图标（始终可用）";
+"onboarding.feature.shortcut"  = "全局快捷键 → 浮动面板";
+"onboarding.feature.rightclick" = "Control + 右键 弹出 NewKit 菜单（需辅助功能权限）";
+"onboarding.feature.toolbar"   = "Finder 顶部工具栏按钮（需启用扩展）";
+"onboarding.acc.title"      = "第 1 步 — 辅助功能";
+"onboarding.acc.body"       = "Control + 右键 功能需要此权限。NewKit 仅用它检测 Finder 处于前台时的右键事件，不读取任何其他内容。";
+"onboarding.ext.title"      = "第 2 步 — Finder 扩展";
+"onboarding.ext.body"       = "为 Finder 工具栏添加 NewKit 按钮。打开 系统设置 → 登录项与扩展 → Finder，开启 NewKit Finder Extension。";
+"onboarding.ext.open"       = "打开扩展设置";
+"onboarding.done.title"     = "全部就绪！";
+"onboarding.done.body"      = "可随时通过 偏好设置 → 关于 中重新打开本引导。";
+"common.back"               = "上一步";
+"common.next"               = "下一步";
+"common.done"               = "完成";
+
+/* Finder extension */
+"ext.menu.header" = "用 NewKit 新建文件";
+
+/* Menu titles for built-in file types */
+"menu.newfile.txt"    = "文本文件 (.txt)";
+"menu.newfile.md"     = "Markdown (.md)";
+"menu.newfile.py"     = "Python (.py)";
+"menu.newfile.js"     = "JavaScript (.js)";
+"menu.newfile.ts"     = "TypeScript (.ts)";
+"menu.newfile.json"   = "JSON (.json)";
+"menu.newfile.html"   = "HTML (.html)";
+"menu.newfile.css"    = "CSS (.css)";
+"menu.newfile.sh"     = "Shell 脚本 (.sh)";
+"menu.newfile.xlsx"   = "Excel 表格 (.xlsx)";
+"menu.newfile.docx"   = "Word 文档 (.docx)";
+"menu.newfile.pptx"   = "PowerPoint 演示 (.pptx)";
+"menu.newfile.folder" = "文件夹";
+
+/* Default filenames (without extension) */
+"newfile.txt"    = "新建文本文档";
+"newfile.md"     = "新建 Markdown 文档";
+"newfile.py"     = "新建 Python 文件";
+"newfile.js"     = "新建 JavaScript 文件";
+"newfile.ts"     = "新建 TypeScript 文件";
+"newfile.json"   = "新建 JSON 文件";
+"newfile.html"   = "新建 HTML 文件";
+"newfile.css"    = "新建 CSS 文件";
+"newfile.sh"     = "新建 Shell 脚本";
+"newfile.xlsx"   = "新建 Excel 工作表";
+"newfile.docx"   = "新建 Word 文档";
+"newfile.pptx"   = "新建 PowerPoint 演示文稿";
+"newfile.folder" = "未命名文件夹";

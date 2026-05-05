@@ -1,0 +1,126 @@
+/* Menu structure */
+"menu.header.newin"      = "New file in current Finder folder";
+"menu.targetpath.prefix" = "📁";
+"menu.preferences"       = "Preferences…";
+"menu.quit"              = "Quit NewKit";
+
+/* Settings window */
+"settings.window.title"          = "NewKit Preferences";
+"settings.tab.general"           = "General";
+"settings.tab.filetypes"         = "File Types";
+"settings.tab.templates"         = "Templates";
+"settings.tab.shortcuts"         = "Shortcuts";
+
+/* Templates tab */
+"templates.empty"      = "Select a file type to edit its template.";
+"templates.reset"      = "Reset to Default";
+"templates.overridden" = "Customized";
+"settings.tab.permissions"       = "Permissions";
+"settings.tab.logs"              = "Logs";
+
+/* Logs tab */
+"logs.section"      = "Local Logs";
+"logs.path.label"   = "Folder:";
+"logs.reveal"       = "Show in Finder";
+"logs.export"       = "Export Zip to Desktop";
+"logs.error.empty"  = "No logs yet — use the app a bit, then export.";
+"logs.footer"       = "Logs are stored locally and rotated after 14 days. Nothing is uploaded.";
+"settings.tab.about"             = "About";
+
+/* Right-click menu header */
+"menu.header.newhere" = "New file here";
+
+/* Permissions tab */
+"perm.acc.section"      = "Accessibility";
+"perm.acc.granted"      = "Granted — right-click in Finder is enabled.";
+"perm.acc.missing"      = "Not granted — right-click trigger is disabled.";
+"perm.acc.request"      = "Request Permission";
+"perm.acc.opensettings" = "Open System Settings";
+"perm.acc.footer"       = "Hold Control while right-clicking inside Finder to open the NewKit menu. Without permission, only the menu bar icon, shortcut, and floating panel work.";
+
+/* Shortcuts */
+"shortcuts.toggle.label"  = "Toggle floating new file panel";
+"shortcuts.footer"        = "Click to record a new shortcut, or use the × button to clear it. Avoid keys your IDE uses (e.g. F8).";
+
+/* Floating panel */
+"floating.title" = "Create in current folder";
+"floating.hint"  = "Press Esc to dismiss · click an icon to create";
+"settings.postcreate.section"    = "After creating a file";
+"settings.postcreate.label"      = "Action";
+"settings.postcreate.footer"     = "Some IDEs may capture the rename keystroke. If rename doesn't trigger, grant Accessibility permission in System Settings → Privacy & Security.";
+"settings.author.section"        = "Templates";
+"settings.author.label"          = "Author";
+"settings.author.footer"         = "Used by the {{author}} placeholder in file templates.";
+"settings.menubar.section"       = "Menu Bar";
+"settings.menubar.label"         = "Show NewKit icon in menu bar";
+"settings.menubar.footer"        = "When hidden, you can re-open this window by double-clicking NewKit in Applications. The Finder right-click menu, toolbar button, and global shortcut continue to work.";
+"custom.template.variables"      = "Variables: {{date}} {{time}} {{datetime}} {{year}} {{filename}} {{author}}";
+"settings.filetypes.hint"        = "Toggle, reorder (drag), and add your own file types. Built-in types can be hidden but not deleted.";
+"settings.filetypes.custombadge" = "Custom";
+
+/* Custom type editor */
+"custom.title.create"    = "Add Custom File Type";
+"custom.title.edit"      = "Edit Custom File Type";
+"custom.name"            = "Display name";
+"custom.extension"       = "Extension (without the dot)";
+"custom.symbol"          = "SF Symbol name";
+"custom.template"        = "Template content (optional)";
+"custom.defaultname"     = "Untitled";
+"common.cancel"          = "Cancel";
+"common.save"            = "Save";
+"post.reveal"                    = "Show in Finder and rename";
+"post.open"                      = "Open in default app";
+"about.tagline"                  = "Quick file creation for macOS Finder.";
+"about.openonboarding"           = "Show Setup Guide";
+
+/* Onboarding */
+"onboarding.window.title"   = "Welcome to NewKit";
+"onboarding.title"          = "Welcome to NewKit";
+"onboarding.welcome.body"   = "Create files anywhere in Finder, instantly. Here are the entry points:";
+"onboarding.feature.menubar"   = "Menu bar icon (always available)";
+"onboarding.feature.shortcut"  = "Global shortcut → floating panel";
+"onboarding.feature.rightclick" = "Control + Right-click in Finder (needs Accessibility)";
+"onboarding.feature.toolbar"   = "Finder toolbar button (needs extension enabled)";
+"onboarding.acc.title"      = "Step 1 — Accessibility";
+"onboarding.acc.body"       = "Required for the Control + Right-click feature. NewKit uses it only to detect right-click events when Finder is the front app.";
+"onboarding.ext.title"      = "Step 2 — Finder Extension";
+"onboarding.ext.body"       = "Adds a NewKit button to Finder's toolbar. Open System Settings → Login Items & Extensions → Finder, and turn on NewKit Finder Extension.";
+"onboarding.ext.open"       = "Open Extensions Settings";
+"onboarding.done.title"     = "All set!";
+"onboarding.done.body"      = "You can re-open this guide anytime from Preferences → About.";
+"common.back"               = "Back";
+"common.next"               = "Next";
+"common.done"               = "Done";
+
+/* Finder extension */
+"ext.menu.header" = "New file with NewKit";
+
+/* Menu titles for built-in file types */
+"menu.newfile.txt"    = "Text File (.txt)";
+"menu.newfile.md"     = "Markdown (.md)";
+"menu.newfile.py"     = "Python (.py)";
+"menu.newfile.js"     = "JavaScript (.js)";
+"menu.newfile.ts"     = "TypeScript (.ts)";
+"menu.newfile.json"   = "JSON (.json)";
+"menu.newfile.html"   = "HTML (.html)";
+"menu.newfile.css"    = "CSS (.css)";
+"menu.newfile.sh"     = "Shell Script (.sh)";
+"menu.newfile.xlsx"   = "Excel (.xlsx)";
+"menu.newfile.docx"   = "Word (.docx)";
+"menu.newfile.pptx"   = "PowerPoint (.pptx)";
+"menu.newfile.folder" = "Folder";
+
+/* Default filenames (without extension) */
+"newfile.txt"    = "Untitled";
+"newfile.md"     = "Untitled";
+"newfile.py"     = "Untitled";
+"newfile.js"     = "Untitled";
+"newfile.ts"     = "Untitled";
+"newfile.json"   = "Untitled";
+"newfile.html"   = "Untitled";
+"newfile.css"    = "Untitled";
+"newfile.sh"     = "Untitled";
+"newfile.xlsx"   = "Untitled";
+"newfile.docx"   = "Untitled";
+"newfile.pptx"   = "Untitled";
+"newfile.folder" = "untitled folder";
