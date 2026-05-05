@@ -18,8 +18,9 @@ final class SettingsWindowController {
         let host = NSHostingController(rootView: SettingsView(config: Configuration.shared))
         let window = NSWindow(contentViewController: host)
         window.title = NSLocalizedString("settings.window.title", comment: "")
-        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 480, height: 360)
         window.center()
         window.setFrameAutosaveName("NewKitSettings")
         self.window = window

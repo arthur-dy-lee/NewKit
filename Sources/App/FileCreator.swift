@@ -41,11 +41,11 @@ enum FileCreator {
     /// Reads `author` from UserDefaults synchronously without touching the MainActor singleton.
     /// Lets us render templates from any actor context (e.g. URLSchemeHandler).
     private static func readAuthor() -> String {
-        UserDefaults.standard.string(forKey: "author") ?? NSFullUserName()
+        SharedDefaults.store.string(forKey: "author") ?? NSFullUserName()
     }
 
     private static func readOverride(for id: String) -> String? {
-        guard let data = UserDefaults.standard.data(forKey: "templateOverrides"),
+        guard let data = SharedDefaults.store.data(forKey: "templateOverrides"),
               let dict = try? JSONDecoder().decode([String: String].self, from: data)
         else { return nil }
         return dict[id]

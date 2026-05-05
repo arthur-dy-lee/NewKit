@@ -1,49 +1,38 @@
 import AppKit
 import FinderSync
 
-/// Finder Sync extension that adds a NewKit toolbar button and right-click submenu.
-/// We don't use sync features (no badges, no observed directories), only the UI extension surface.
-final class FinderSync: FIFinderSync {
+@objc(NewKitFinderSync)
+final class NewKitFinderSync: FIFinderSync {
 
-    private static let appBundleID = "app.newkit.NewKit"
-    private static let menuTypeIDsKey = "menuTypeIDs"
+    private static let appGroupID = "XVZHPD648U.com.codearthur.matrixapps.newkit"
+    private let sharedDefaults = UserDefaults(suiteName: appGroupID)
 
     override init() {
         super.init()
-
+        NSLog("[NewKit] FinderSync init")
         let controller = FIFinderSyncController.default()
-        // Observe the entire user home so the toolbar button is active everywhere a typical user works.
-        // Users can refine this via System Settings → Login Items & Extensions if they want.
         let home = FileManager.default.homeDirectoryForCurrentUser
-        controller.directoryURLs = [home]
+        var roots: Set<URL> = [home]
+        if let volume = URL(string: "file:///") { roots.insert(volume) }
+        controller.directoryURLs = roots
 
+        // Toolbar item: image + tooltip. KVC-style setting is used so we don't depend on
+        // SDK-version-specific property declarations (Apple has shuffled these around).
         let image = NSImage(systemSymbolName: "plus.square.on.square",
                             accessibilityDescription: "NewKit") ?? NSImage()
         image.isTemplate = true
-        controller.setBadgeImage(image, label: "NewKit", forBadgeIdentifier: "newkit")
-        // Toolbar item appearance is provided by Info.plist (NSExtensionAttributes) when present.
+        controller.setValue(image, forKey: "toolbarItemImage")
+        controller.setValue("NewKit", forKey: "toolbarItemName")
+        controller.setValue("Create new file with NewKit", forKey: "toolbarItemToolTip")
     }
 
     // MARK: - Menus
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
+        NSLog("[NewKit] menu(for:) kind=\(menuKind.rawValue)")
         let menu = NSMenu()
-        switch menuKind {
-        case .toolbarItemMenu, .contextualMenuForContainer, .contextualMenuForItems:
-            populate(menu)
-        default:
-            populate(menu)
-        }
-        return menu
-    }
-
-    private func populate(_ menu: NSMenu) {
-        let header = NSMenuItem(title: NSLocalizedString("ext.menu.header", comment: ""),
-                                action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
-        menu.addItem(.separator())
-
+        let parent = NSMenuItem(title: "NewKit", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
         for entry in resolveTypes() {
             let item = NSMenuItem(title: entry.title, action: #selector(handle(_:)), keyEquivalent: "")
             item.target = self
@@ -52,16 +41,18 @@ final class FinderSync: FIFinderSync {
                let img = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
                 item.image = img
             }
-            menu.addItem(item)
+            submenu.addItem(item)
         }
+        parent.submenu = submenu
+        menu.addItem(parent)
+        return menu
     }
 
     @objc private func handle(_ sender: NSMenuItem) {
-        guard let entry = sender.representedObject as? MenuEntry else { return }
+        guard let entry = sender.representedObject as? Snapshot else { return }
         let target = resolveTargetURL()
-        // Hand off to the main app via a custom URL — extension itself can't sandbox-write
-        // anywhere reliably and is capability-limited. The main app does the actual creation.
         let payload = "newkit://create?type=\(entry.id)&path=\(target.path.urlEncoded)"
+        NSLog("[NewKit] handle id=\(entry.id) → \(target.path)")
         if let url = URL(string: payload) {
             NSWorkspace.shared.open(url)
         }
@@ -69,8 +60,7 @@ final class FinderSync: FIFinderSync {
 
     private func resolveTargetURL() -> URL {
         if let target = FIFinderSyncController.default().targetedURL() { return target }
-        let selected = FIFinderSyncController.default().selectedItemURLs() ?? []
-        if let first = selected.first {
+        if let selected = FIFinderSyncController.default().selectedItemURLs(), let first = selected.first {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: first.path, isDirectory: &isDir),
                isDir.boolValue { return first }
@@ -79,34 +69,35 @@ final class FinderSync: FIFinderSync {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 
-    // MARK: - Configuration via shared App Group is added in M3 with proper provisioning.
-    //         For now, we ship a hard-coded default list mirroring FileTypeRegistry's built-ins.
+    // MARK: - Snapshot from shared defaults
 
-    private struct MenuEntry: Codable {
+    private struct Snapshot: Codable {
         let id: String
-        let title: String
+        let ext: String?
         let symbolName: String?
+        let title: String
+        let isFolder: Bool
     }
 
-    private func resolveTypes() -> [MenuEntry] {
-        [
-            MenuEntry(id: "txt",    title: localized("menu.newfile.txt"),    symbolName: "doc.text"),
-            MenuEntry(id: "md",     title: localized("menu.newfile.md"),     symbolName: "doc.richtext"),
-            MenuEntry(id: "py",     title: localized("menu.newfile.py"),     symbolName: "chevron.left.forwardslash.chevron.right"),
-            MenuEntry(id: "js",     title: localized("menu.newfile.js"),     symbolName: "curlybraces"),
-            MenuEntry(id: "ts",     title: localized("menu.newfile.ts"),     symbolName: "curlybraces"),
-            MenuEntry(id: "json",   title: localized("menu.newfile.json"),   symbolName: "curlybraces.square"),
-            MenuEntry(id: "html",   title: localized("menu.newfile.html"),   symbolName: "globe"),
-            MenuEntry(id: "css",    title: localized("menu.newfile.css"),    symbolName: "paintbrush"),
-            MenuEntry(id: "sh",     title: localized("menu.newfile.sh"),     symbolName: "terminal"),
-            MenuEntry(id: "xlsx",   title: localized("menu.newfile.xlsx"),   symbolName: "tablecells"),
-            MenuEntry(id: "docx",   title: localized("menu.newfile.docx"),   symbolName: "doc.text.fill"),
-            MenuEntry(id: "pptx",   title: localized("menu.newfile.pptx"),   symbolName: "rectangle.on.rectangle"),
-            MenuEntry(id: "folder", title: localized("menu.newfile.folder"), symbolName: "folder"),
+    private func resolveTypes() -> [Snapshot] {
+        if let data = sharedDefaults?.data(forKey: "visibleTypesSnapshot"),
+           let list = try? JSONDecoder().decode([Snapshot].self, from: data),
+           !list.isEmpty {
+            return list
+        }
+        // Fallback: minimal hardcoded list so the menu is never empty.
+        return [
+            Snapshot(id: "txt", ext: "txt", symbolName: "doc.text", title: "Text File (.txt)", isFolder: false),
+            Snapshot(id: "md",  ext: "md",  symbolName: "doc.richtext", title: "Markdown (.md)", isFolder: false),
+            Snapshot(id: "folder", ext: nil, symbolName: "folder", title: "Folder", isFolder: true),
         ]
     }
 
-    private func localized(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+    override func beginObservingDirectory(at url: URL) {
+        NSLog("[NewKit] beginObservingDirectory: \(url.path)")
+    }
+
+    override func endObservingDirectory(at url: URL) { }
 }
 
 private extension String {

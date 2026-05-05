@@ -95,7 +95,7 @@ final class Configuration: ObservableObject {
         }
     }
 
-    private init(defaults: UserDefaults = .standard) {
+    private init(defaults: UserDefaults = SharedDefaults.store) {
         self.defaults = defaults
 
         // Seed first run with all built-ins enabled in registry order.
@@ -128,6 +128,7 @@ final class Configuration: ObservableObject {
         self.showMenuBarIcon = defaults.object(forKey: Key.showMenuBarIcon) as? Bool ?? true
 
         reconcileOrder()
+        publishVisibleSnapshot()
     }
 
     // MARK: - Computed views
@@ -202,6 +203,26 @@ final class Configuration: ObservableObject {
     }
 
     private func broadcast() {
+        publishVisibleSnapshot()
         NotificationCenter.default.post(name: Self.didChange, object: self)
+    }
+
+    /// Writes a JSON snapshot of the current visible types into shared defaults so the
+    /// Finder Sync extension (which can't import our types) can render the same menu.
+    func publishVisibleSnapshot() {
+        struct Snapshot: Codable {
+            let id: String
+            let ext: String?
+            let symbolName: String?
+            let title: String
+            let isFolder: Bool
+        }
+        let snapshot = visibleTypes.map {
+            Snapshot(id: $0.id, ext: $0.ext, symbolName: $0.symbolName,
+                     title: $0.menuTitle, isFolder: $0.isFolder)
+        }
+        if let data = try? JSONEncoder().encode(snapshot) {
+            defaults.set(data, forKey: "visibleTypesSnapshot")
+        }
     }
 }
