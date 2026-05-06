@@ -44,23 +44,39 @@ final class StatusBarController {
         guard let statusItem else { return }
         let menu = NSMenu()
 
-        let header = NSMenuItem(title: NSLocalizedString("menu.header.newin", comment: ""),
+        let header = NSMenuItem(title: L10n.string("menu.header.newin"),
                                 action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         menu.addItem(.separator())
 
-        for type in Configuration.shared.visibleTypes {
-            let item = NSMenuItem(title: type.menuTitle,
-                                  action: #selector(handleCreate(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = type
-            if let symbol = type.symbolName,
-               let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-                item.image = image
+        for entry in Configuration.shared.visibleEntries {
+            switch entry {
+            case .fileType(let type):
+                let item = NSMenuItem(title: type.menuTitle,
+                                      action: #selector(handleCreate(_:)),
+                                      keyEquivalent: "")
+                item.target = self
+                item.representedObject = type
+                if let symbol = type.symbolName,
+                   let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
+                    item.image = image
+                }
+                menu.addItem(item)
+            case .separator:
+                menu.addItem(SeparatorMenuItemFactory.make())
             }
-            menu.addItem(item)
+        }
+
+        if Configuration.shared.showOpenTerminal {
+            let term = NSMenuItem(title: L10n.string("menu.openterminal"),
+                                  action: #selector(openTerminal(_:)),
+                                  keyEquivalent: "")
+            term.target = self
+            if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil) {
+                term.image = img
+            }
+            menu.addItem(term)
         }
 
         menu.addItem(.separator())
@@ -72,13 +88,13 @@ final class StatusBarController {
 
         menu.addItem(.separator())
 
-        let prefs = NSMenuItem(title: NSLocalizedString("menu.preferences", comment: ""),
+        let prefs = NSMenuItem(title: L10n.string("menu.preferences"),
                                action: #selector(openPreferences(_:)),
                                keyEquivalent: ",")
         prefs.target = self
         menu.addItem(prefs)
 
-        let quit = NSMenuItem(title: NSLocalizedString("menu.quit", comment: ""),
+        let quit = NSMenuItem(title: L10n.string("menu.quit"),
                               action: #selector(NSApplication.terminate(_:)),
                               keyEquivalent: "q")
         menu.addItem(quit)
@@ -89,7 +105,7 @@ final class StatusBarController {
 
     private func pathLabel() -> String {
         let dir = FinderHelper.currentTargetPath()
-        let prefix = NSLocalizedString("menu.targetpath.prefix", comment: "")
+        let prefix = L10n.string("menu.targetpath.prefix")
         return "\(prefix) \(MenuRefresher.abbreviate(dir.path))"
     }
 
@@ -110,6 +126,10 @@ final class StatusBarController {
         }
     }
 
+    @objc private func openTerminal(_ sender: Any?) {
+        TerminalOpener.open(at: FinderHelper.currentTargetPath())
+    }
+
     @objc private func openPreferences(_ sender: Any?) {
         SettingsWindowController.shared.show()
     }
@@ -120,7 +140,7 @@ final class MenuRefresher: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         guard let item = menu.item(withTag: 999) else { return }
         let dir = FinderHelper.currentTargetPath()
-        let prefix = NSLocalizedString("menu.targetpath.prefix", comment: "")
+        let prefix = L10n.string("menu.targetpath.prefix")
         item.title = "\(prefix) \(MenuRefresher.abbreviate(dir.path))"
     }
 

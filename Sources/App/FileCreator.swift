@@ -11,7 +11,8 @@ enum FileCreator {
     /// Returns the URL of the created item.
     @discardableResult
     static func create(_ type: FileType, in directory: URL) throws -> URL {
-        let url = uniqueURL(in: directory, baseName: type.defaultName, ext: type.ext)
+        let baseName = readDefaultNameOverride(for: type.id) ?? type.defaultName
+        let url = uniqueURL(in: directory, baseName: baseName, ext: type.ext)
 
         do {
             if type.isFolder {
@@ -42,6 +43,15 @@ enum FileCreator {
     /// Lets us render templates from any actor context (e.g. URLSchemeHandler).
     private static func readAuthor() -> String {
         SharedDefaults.store.string(forKey: "author") ?? NSFullUserName()
+    }
+
+    private static func readDefaultNameOverride(for typeID: String) -> String? {
+        guard let data = SharedDefaults.store.data(forKey: "defaultNameOverrides"),
+              let dict = try? JSONDecoder().decode([String: String].self, from: data),
+              let value = dict[typeID]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty
+        else { return nil }
+        return value
     }
 
     private static func readOverride(for id: String) -> String? {

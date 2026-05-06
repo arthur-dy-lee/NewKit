@@ -11,6 +11,8 @@ final class NewKitFinderSync: FIFinderSync {
     /// Maps `NSMenuItem.tag` → type ID. NSMenuItem's `representedObject` does NOT
     /// survive the XPC round-trip when Finder displays our menu, but `tag` does.
     private var tagToTypeID: [Int: String] = [:]
+    /// Maps `NSMenuItem.tag` → action ID for non-create actions (e.g. open Terminal).
+    private var tagToActionID: [Int: String] = [:]
 
     override init() {
         super.init()
@@ -32,12 +34,28 @@ final class NewKitFinderSync: FIFinderSync {
     // MARK: - Menus
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
-        Self.logger.info("menu(for:) kind=\(menuKind.rawValue, privacy: .public)")
+        let entries = resolveTypes()
+        let summary = entries.map { $0.kind == "separator" ? "[sep]" : "[\($0.id)]" }.joined(separator: ",")
+        Self.logger.info("menu(for:) kind=\(menuKind.rawValue, privacy: .public) entries=\(summary, privacy: .public)")
         let menu = NSMenu()
         tagToTypeID.removeAll()
-        for (idx, entry) in resolveTypes().enumerated() {
-            let tag = idx + 1  // avoid 0 which is the default tag
-            tagToTypeID[tag] = entry.id
+        tagToActionID.removeAll()
+        var nextTag = 1
+        for entry in entries {
+            // Finder's contextual menu (kind=1) merges our items into its own menu and breaks
+            // when given a view-based menu item — the entire submenu vanishes. Falling back to
+            // NSMenuItem.separator() keeps the file types visible; in this context it renders
+            // as a thin gap rather than the styled line we use elsewhere.
+            if entry.kind == "separator" {
+                menu.addItem(.separator())
+                continue
+            }
+            let tag = nextTag; nextTag += 1
+            if entry.kind == "action" {
+                tagToActionID[tag] = entry.id
+            } else {
+                tagToTypeID[tag] = entry.id
+            }
             let item = NSMenuItem(title: entry.title, action: #selector(handle(_:)), keyEquivalent: "")
             item.target = self
             item.tag = tag
@@ -52,14 +70,19 @@ final class NewKitFinderSync: FIFinderSync {
 
     @objc private func handle(_ sender: NSMenuItem) {
         Self.logger.info("handle FIRED title=\(sender.title, privacy: .public) tag=\(sender.tag, privacy: .public)")
-        guard let typeID = tagToTypeID[sender.tag],
-              let entry = resolveTypes().first(where: { $0.id == typeID }) else {
+        let target = resolveTargetURL()
+        let payloadID: String
+        if let actionID = tagToActionID[sender.tag] {
+            payloadID = actionID
+        } else if let typeID = tagToTypeID[sender.tag],
+                  resolveTypes().contains(where: { $0.id == typeID }) {
+            payloadID = typeID
+        } else {
             Self.logger.error("handle: cannot resolve entry for tag=\(sender.tag, privacy: .public)")
             return
         }
-        let target = resolveTargetURL()
-        Self.logger.info("handle id=\(entry.id, privacy: .public) target=\(target.path, privacy: .public)")
-        let dropped = dropPendingCommand(typeID: entry.id, folderPath: target.path)
+        Self.logger.info("handle id=\(payloadID, privacy: .public) target=\(target.path, privacy: .public)")
+        let dropped = dropPendingCommand(typeID: payloadID, folderPath: target.path)
         Self.logger.info("dropped=\(dropped?.path ?? "nil", privacy: .public)")
         let appURL = URL(fileURLWithPath: "/Applications/NewKit.app")
         FIFinderSyncController.default().open(appURL) { ok in
@@ -108,11 +131,32 @@ final class NewKitFinderSync: FIFinderSync {
     // MARK: - Snapshot from shared defaults
 
     private struct Snapshot: Codable {
+        let kind: String     // "type" or "separator" — old snapshots default to "type"
         let id: String
         let ext: String?
         let symbolName: String?
         let title: String
         let isFolder: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case kind, id, ext, symbolName, title, isFolder
+        }
+
+        init(kind: String, id: String, ext: String?, symbolName: String?,
+             title: String, isFolder: Bool) {
+            self.kind = kind; self.id = id; self.ext = ext
+            self.symbolName = symbolName; self.title = title; self.isFolder = isFolder
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.kind = (try? c.decode(String.self, forKey: .kind)) ?? "type"
+            self.id = try c.decode(String.self, forKey: .id)
+            self.ext = try c.decodeIfPresent(String.self, forKey: .ext)
+            self.symbolName = try c.decodeIfPresent(String.self, forKey: .symbolName)
+            self.title = try c.decode(String.self, forKey: .title)
+            self.isFolder = try c.decode(Bool.self, forKey: .isFolder)
+        }
     }
 
     private func resolveTypes() -> [Snapshot] {
@@ -123,9 +167,12 @@ final class NewKitFinderSync: FIFinderSync {
         }
         // Fallback: minimal hardcoded list so the menu is never empty.
         return [
-            Snapshot(id: "txt", ext: "txt", symbolName: "doc.text", title: "Text File (.txt)", isFolder: false),
-            Snapshot(id: "md",  ext: "md",  symbolName: "doc.richtext", title: "Markdown (.md)", isFolder: false),
-            Snapshot(id: "folder", ext: nil, symbolName: "folder", title: "Folder", isFolder: true),
+            Snapshot(kind: "type", id: "txt", ext: "txt", symbolName: "doc.text",
+                     title: "Text File (.txt)", isFolder: false),
+            Snapshot(kind: "type", id: "md",  ext: "md",  symbolName: "doc.richtext",
+                     title: "Markdown (.md)", isFolder: false),
+            Snapshot(kind: "type", id: "folder", ext: nil, symbolName: "folder",
+                     title: "Folder", isFolder: true),
         ]
     }
 

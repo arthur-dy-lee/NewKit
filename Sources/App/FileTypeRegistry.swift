@@ -63,12 +63,12 @@ struct FileType: Codable, Identifiable, Hashable {
     }
 
     var menuTitle: String {
-        if let key = menuTitleKey { return NSLocalizedString(key, comment: "") }
+        if let key = menuTitleKey { return L10n.string(key) }
         return menuTitleLiteral ?? id
     }
 
     var defaultName: String {
-        if let key = defaultNameKey { return NSLocalizedString(key, comment: "") }
+        if let key = defaultNameKey { return L10n.string(key) }
         return defaultNameLiteral ?? "Untitled"
     }
 }

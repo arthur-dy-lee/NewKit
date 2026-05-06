@@ -86,11 +86,15 @@ final class PendingCommandWatcher {
             Log.error("PendingCommandWatcher: malformed command at \(file.lastPathComponent)")
             return
         }
+        let folder = URL(fileURLWithPath: path, isDirectory: true)
+        if typeID == TerminalOpener.actionID {
+            TerminalOpener.open(at: folder)
+            return
+        }
         guard let type = resolveType(id: typeID) else {
             Log.error("PendingCommandWatcher: unknown type id=\(typeID)")
             return
         }
-        let folder = URL(fileURLWithPath: path, isDirectory: true)
         do {
             let created = try FileCreator.create(type, in: folder)
             switch Configuration.shared.postCreateBehavior {

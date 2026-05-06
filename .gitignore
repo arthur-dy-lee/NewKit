@@ -31,7 +31,11 @@ playground.xcworkspace
 
 .build/
 build/
+dist/
 DerivedData/
+
+# OS noise
+.DS_Store
 
 # XcodeGen-generated project (regenerated from project.yml)
 NewKit.xcodeproj/

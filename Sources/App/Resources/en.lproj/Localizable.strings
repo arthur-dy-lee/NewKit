@@ -54,6 +54,29 @@
 "settings.menubar.section"       = "Menu Bar";
 "settings.menubar.label"         = "Show NewKit icon in menu bar";
 "settings.menubar.footer"        = "When hidden, you can re-open this window by double-clicking NewKit in Applications. The Finder right-click menu, toolbar button, and global shortcut continue to work.";
+
+/* Language */
+"settings.language.section" = "Language";
+"settings.language.label"   = "UI language";
+"settings.language.footer"  = "Defaults to the system language. Menus and settings update immediately when changed.";
+"language.system"           = "Follow System";
+
+/* Right-click separators toggle */
+"settings.rightclick.section"               = "Control + Right-click menu";
+"settings.rightclick.showseparators.label"  = "Show separators in right-click menu";
+"settings.rightclick.showseparators.footer" = "When off, separators you've added in File Types are hidden from the right-click menu. The status bar and Finder toolbar menus still show them.";
+
+/* File types extras */
+"settings.filetypes.add.help"            = "Add a custom file type";
+"settings.filetypes.remove.help"         = "Remove the selected custom type or separator";
+"settings.filetypes.edit.help"           = "Edit the selected custom type";
+"settings.filetypes.addseparator"        = "Add Separator";
+"settings.filetypes.addseparator.help"   = "Insert a separator above the selected row (or append to the end if nothing is selected). Place it before the first row to mark the start of NewKit's items in the right-click menu.";
+"settings.filetypes.moveup.help"         = "Move selected row up";
+"settings.filetypes.movedown.help"       = "Move selected row down";
+"settings.filetypes.separator.placeholder" = "Group label (optional)";
+"settings.filetypes.separator.badge"     = "Separator";
+"settings.filetypes.defaultname.help"    = "Default filename for new files of this type (leave empty for the built-in default)";
 "custom.template.variables"      = "Variables: {{date}} {{time}} {{datetime}} {{year}} {{filename}} {{author}}";
 "settings.filetypes.hint"        = "Toggle, reorder (drag), and add your own file types. Built-in types can be hidden but not deleted.";
 "settings.filetypes.custombadge" = "Custom";
@@ -94,6 +117,11 @@
 
 /* Finder extension */
 "ext.menu.header" = "New file with NewKit";
+
+/* Action: open Terminal at current folder */
+"menu.openterminal" = "Open Terminal";
+"settings.filetypes.showterminal.label"  = "Show \"Open Terminal\" item";
+"settings.filetypes.showterminal.footer" = "When off, the item is hidden from all menus (right-click, menu bar, Finder toolbar).";
 
 /* Menu titles for built-in file types */
 "menu.newfile.txt"    = "Text File (.txt)";

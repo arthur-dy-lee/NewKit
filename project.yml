@@ -21,9 +21,15 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     SWIFT_STRICT_CONCURRENCY: minimal
     CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: 0AC02A7107C28C9DDBACF88FE1A9A1F995C38C05
+    CODE_SIGN_IDENTITY: "Developer ID Application: bozhu li (XVZHPD648U)"
     DEVELOPMENT_TEAM: XVZHPD648U
     PROVISIONING_PROFILE_SPECIFIER: ""
+  configs:
+    Release:
+      # Required for notarization: strip the get-task-allow debug entitlement and
+      # request a secure timestamp from Apple's TSA.
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+      OTHER_CODE_SIGN_FLAGS: "--timestamp"
 
 targets:
   NewKit:
@@ -73,6 +79,7 @@ targets:
         buildPhase: resources
       - path: Sources/App/Resources/zh-Hans.lproj
         buildPhase: resources
+      - path: Sources/App/SeparatorMenuItemFactory.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.newkit.NewKit.FinderExtension

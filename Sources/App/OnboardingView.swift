@@ -135,7 +135,7 @@ final class OnboardingWindowController {
             self?.window = nil
         })
         let window = NSWindow(contentViewController: host)
-        window.title = NSLocalizedString("onboarding.window.title", comment: "")
+        window.title = L10n.string("onboarding.window.title")
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.center()

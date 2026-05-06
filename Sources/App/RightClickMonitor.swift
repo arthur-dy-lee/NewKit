@@ -54,23 +54,44 @@ enum ContextMenuBuilder {
     static func buildMenu() -> NSMenu {
         let menu = NSMenu()
 
-        let header = NSMenuItem(title: NSLocalizedString("menu.header.newhere", comment: ""),
+        let header = NSMenuItem(title: L10n.string("menu.header.newhere"),
                                 action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         menu.addItem(.separator())
 
-        for type in Configuration.shared.visibleTypes {
-            let item = NSMenuItem(title: type.menuTitle,
-                                  action: #selector(MenuActionTarget.shared.create(_:)),
-                                  keyEquivalent: "")
-            item.target = MenuActionTarget.shared
-            item.representedObject = type
-            if let symbol = type.symbolName,
-               let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-                item.image = image
+        let showSeps = Configuration.shared.showSeparatorsInRightClickMenu
+        let entries = Configuration.shared.visibleEntries
+        let summary = entries.map { $0.isSeparator ? "[sep]" : "[type]" }.joined(separator: ",")
+        Log.info("RightClick menu build: showSeps=\(showSeps) entries=\(summary)")
+        for entry in entries {
+            switch entry {
+            case .fileType(let type):
+                let item = NSMenuItem(title: type.menuTitle,
+                                      action: #selector(MenuActionTarget.shared.create(_:)),
+                                      keyEquivalent: "")
+                item.target = MenuActionTarget.shared
+                item.representedObject = type
+                if let symbol = type.symbolName,
+                   let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
+                    item.image = image
+                }
+                menu.addItem(item)
+            case .separator:
+                guard showSeps else { continue }
+                menu.addItem(SeparatorMenuItemFactory.make())
             }
-            menu.addItem(item)
+        }
+
+        if Configuration.shared.showOpenTerminal {
+            let term = NSMenuItem(title: L10n.string("menu.openterminal"),
+                                  action: #selector(MenuActionTarget.shared.openTerminal(_:)),
+                                  keyEquivalent: "")
+            term.target = MenuActionTarget.shared
+            if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil) {
+                term.image = img
+            }
+            menu.addItem(term)
         }
 
         return menu
@@ -81,6 +102,10 @@ enum ContextMenuBuilder {
 @MainActor
 final class MenuActionTarget: NSObject {
     static let shared = MenuActionTarget()
+
+    @objc func openTerminal(_ sender: NSMenuItem) {
+        TerminalOpener.open(at: FinderHelper.currentTargetPath())
+    }
 
     @objc func create(_ sender: NSMenuItem) {
         guard let type = sender.representedObject as? FileType else { return }

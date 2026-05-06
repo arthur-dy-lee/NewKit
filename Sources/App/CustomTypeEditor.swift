@@ -100,7 +100,7 @@ struct CustomTypeEditor: View {
             menuTitleKey: nil,
             menuTitleLiteral: trimmedName,
             defaultNameKey: nil,
-            defaultNameLiteral: NSLocalizedString("custom.defaultname", comment: "")
+            defaultNameLiteral: L10n.string("custom.defaultname")
         )
         onSave(type)
     }

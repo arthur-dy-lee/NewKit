@@ -30,6 +30,11 @@
 /* Right-click menu header */
 "menu.header.newhere" = "在此处新建";
 
+/* Action: open Terminal at current folder */
+"menu.openterminal" = "打开终端";
+"settings.filetypes.showterminal.label"  = "显示「打开终端」菜单项";
+"settings.filetypes.showterminal.footer" = "关闭后所有入口（右键、菜单栏、Finder 工具栏）都不再显示。";
+
 /* Permissions tab */
 "perm.acc.section"      = "辅助功能";
 "perm.acc.granted"      = "已授权 — Finder 右键功能已启用。";
@@ -54,6 +59,29 @@
 "settings.menubar.section"       = "菜单栏";
 "settings.menubar.label"         = "在菜单栏显示 NewKit 图标";
 "settings.menubar.footer"        = "隐藏后可双击应用程序中的 NewKit 重新打开此窗口。Finder 右键菜单、工具栏按钮、全局快捷键依然可用。";
+
+/* Language */
+"settings.language.section" = "语言";
+"settings.language.label"   = "界面语言";
+"settings.language.footer"  = "默认跟随系统语言。切换后菜单和设置会立即更新。";
+"language.system"           = "跟随系统";
+
+/* Right-click separators toggle */
+"settings.rightclick.section"               = "Control + 右键菜单";
+"settings.rightclick.showseparators.label"  = "在右键菜单中显示分割线";
+"settings.rightclick.showseparators.footer" = "关闭后右键菜单不显示你在「文件类型」中插入的分割线，但状态栏菜单和 Finder 工具栏菜单仍会显示。";
+
+/* File types extras */
+"settings.filetypes.add.help"            = "新增自定义文件类型";
+"settings.filetypes.remove.help"         = "删除选中的自定义类型或分割线";
+"settings.filetypes.edit.help"           = "编辑选中的自定义类型";
+"settings.filetypes.addseparator"        = "插入分割线";
+"settings.filetypes.addseparator.help"   = "在选中行上方插入分割线（未选中则追加到末尾）。可放在第一行之前以标记右键菜单的起始位置。";
+"settings.filetypes.moveup.help"         = "上移选中项";
+"settings.filetypes.movedown.help"       = "下移选中项";
+"settings.filetypes.separator.placeholder" = "分组名称（可选）";
+"settings.filetypes.separator.badge"     = "分割线";
+"settings.filetypes.defaultname.help"    = "新建文件时使用的默认名称（留空则使用系统默认）";
 "custom.template.variables"      = "可用变量：{{date}} {{time}} {{datetime}} {{year}} {{filename}} {{author}}";
 "settings.filetypes.hint"        = "勾选显示、拖动排序、或添加自定义类型。内置类型可隐藏，但不能删除。";
 "settings.filetypes.custombadge" = "自定义";
