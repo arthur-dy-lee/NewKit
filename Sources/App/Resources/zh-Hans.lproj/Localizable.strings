@@ -26,6 +26,24 @@
 "logs.error.empty"  = "暂无日志 — 先使用一下 App，再导出。";
 "logs.footer"       = "日志保存在本地，14 天后自动清理。不会上传任何内容。";
 "settings.tab.about"             = "关于";
+"settings.tab.system"            = "系统";
+
+/* System tab — reverse scrolling */
+"settings.scroll.section"        = "鼠标与触摸板";
+"settings.scroll.invertv.label"  = "反向垂直滚动";
+"settings.scroll.inverth.label"  = "反向水平滚动";
+"settings.scroll.footer"         = "对全局滚动方向取反，需要辅助功能权限。与系统的「自然滚动」设置相互独立 — 哪个方向不顺手就反哪个。";
+"settings.scroll.needacc"        = "需要辅助功能权限才能生效。";
+
+/* System tab — prevent sleep */
+"settings.sleep.section"         = "防止休眠";
+"settings.sleep.prevent.label"   = "阻止 Mac 进入休眠";
+"settings.sleep.display.label"   = "同时保持屏幕常亮";
+"settings.sleep.footer"          = "效果等同于开启时运行「caffeinate」。NewKit 退出时会自动释放。";
+
+/* Status bar quick toggle */
+"menu.preventsleep"              = "防止休眠";
+"menu.sleepdisplaysnow"          = "立即关闭显示器";
 
 /* Right-click menu header */
 "menu.header.newhere" = "在此处新建";
@@ -65,6 +83,14 @@
 "settings.language.label"   = "界面语言";
 "settings.language.footer"  = "默认跟随系统语言。切换后菜单和设置会立即更新。";
 "language.system"           = "跟随系统";
+
+/* Appearance */
+"settings.appearance.section" = "外观";
+"settings.appearance.label"   = "主题";
+"settings.appearance.footer"  = "切换后立即生效。「跟随系统」会随 macOS 的浅色/深色自动切换设置一起变化。";
+"appearance.system"           = "跟随系统";
+"appearance.light"            = "浅色";
+"appearance.dark"             = "深色";
 
 /* Right-click separators toggle */
 "settings.rightclick.section"               = "Control + 右键菜单";

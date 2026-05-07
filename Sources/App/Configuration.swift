@@ -62,6 +62,11 @@ final class Configuration: ObservableObject {
         static let separatorLabels   = "separatorLabels"        // Data ([String:String])
         static let showSeparatorsInRightClick = "showSeparatorsInRightClickMenu" // Bool
         static let showOpenTerminal  = "showOpenTerminal"        // Bool (default true)
+        static let invertVerticalScroll   = "invertVerticalScroll"   // Bool (default false)
+        static let invertHorizontalScroll = "invertHorizontalScroll" // Bool (default false)
+        static let preventSleep        = "preventSleep"        // Bool (default false)
+        static let preventDisplaySleep = "preventDisplaySleep" // Bool (default false)
+        static let appearance          = "appearance"          // String (AppAppearance raw)
     }
 
     /// Canonical display order of every known type (enabled or disabled, built-in or custom)
@@ -169,6 +174,47 @@ final class Configuration: ObservableObject {
         }
     }
 
+    /// Invert vertical scroll direction (mouse wheel + trackpad).
+    @Published var invertVerticalScroll: Bool {
+        didSet {
+            defaults.set(invertVerticalScroll, forKey: Key.invertVerticalScroll)
+            broadcast()
+        }
+    }
+
+    /// Invert horizontal scroll direction (mouse wheel + trackpad).
+    @Published var invertHorizontalScroll: Bool {
+        didSet {
+            defaults.set(invertHorizontalScroll, forKey: Key.invertHorizontalScroll)
+            broadcast()
+        }
+    }
+
+    /// Prevent the system from going to idle sleep (Caffeine-style).
+    @Published var preventSleep: Bool {
+        didSet {
+            defaults.set(preventSleep, forKey: Key.preventSleep)
+            broadcast()
+        }
+    }
+
+    /// Also keep the display awake while preventing sleep. Only meaningful when
+    /// `preventSleep` is true.
+    @Published var preventDisplaySleep: Bool {
+        didSet {
+            defaults.set(preventDisplaySleep, forKey: Key.preventDisplaySleep)
+            broadcast()
+        }
+    }
+
+    /// Light/dark/system appearance override.
+    @Published var appearance: AppAppearance {
+        didSet {
+            defaults.set(appearance.rawValue, forKey: Key.appearance)
+            broadcast()
+        }
+    }
+
     private init(defaults: UserDefaults = SharedDefaults.store) {
         self.defaults = defaults
 
@@ -218,6 +264,16 @@ final class Configuration: ObservableObject {
             defaults.object(forKey: Key.showSeparatorsInRightClick) as? Bool ?? true
         self.showOpenTerminal =
             defaults.object(forKey: Key.showOpenTerminal) as? Bool ?? true
+        self.invertVerticalScroll =
+            defaults.object(forKey: Key.invertVerticalScroll) as? Bool ?? false
+        self.invertHorizontalScroll =
+            defaults.object(forKey: Key.invertHorizontalScroll) as? Bool ?? false
+        self.preventSleep =
+            defaults.object(forKey: Key.preventSleep) as? Bool ?? false
+        self.preventDisplaySleep =
+            defaults.object(forKey: Key.preventDisplaySleep) as? Bool ?? false
+        self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
+            ?? .system
 
         reconcileOrder()
         publishVisibleSnapshot()

@@ -81,6 +81,29 @@ final class StatusBarController {
 
         menu.addItem(.separator())
 
+        let sleepItem = NSMenuItem(title: L10n.string("menu.preventsleep"),
+                                   action: #selector(togglePreventSleep(_:)),
+                                   keyEquivalent: "")
+        sleepItem.target = self
+        sleepItem.state = Configuration.shared.preventSleep ? .on : .off
+        if let img = NSImage(systemSymbolName: "cup.and.saucer",
+                             accessibilityDescription: nil) {
+            sleepItem.image = img
+        }
+        menu.addItem(sleepItem)
+
+        let displayOff = NSMenuItem(title: L10n.string("menu.sleepdisplaysnow"),
+                                    action: #selector(sleepDisplaysNow(_:)),
+                                    keyEquivalent: "")
+        displayOff.target = self
+        if let img = NSImage(systemSymbolName: "display.slash",
+                             accessibilityDescription: nil) {
+            displayOff.image = img
+        }
+        menu.addItem(displayOff)
+
+        menu.addItem(.separator())
+
         let pathItem = NSMenuItem(title: pathLabel(), action: nil, keyEquivalent: "")
         pathItem.isEnabled = false
         pathItem.tag = 999
@@ -132,6 +155,14 @@ final class StatusBarController {
 
     @objc private func openPreferences(_ sender: Any?) {
         SettingsWindowController.shared.show()
+    }
+
+    @objc private func togglePreventSleep(_ sender: Any?) {
+        Configuration.shared.preventSleep.toggle()
+    }
+
+    @objc private func sleepDisplaysNow(_ sender: Any?) {
+        DisplaySleeper.sleepNow()
     }
 }
 

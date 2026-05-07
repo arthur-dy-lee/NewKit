@@ -14,6 +14,8 @@ struct SettingsView: View {
                 .tabItem { Label(L10n.tab("templates"), systemImage: "doc.plaintext") }
             ShortcutsSettingsView()
                 .tabItem { Label(L10n.tab("shortcuts"), systemImage: "command") }
+            SystemSettingsView(config: config)
+                .tabItem { Label(L10n.tab("system"), systemImage: "slider.horizontal.3") }
             PermissionsSettingsView()
                 .tabItem { Label(L10n.tab("permissions"), systemImage: "lock.shield") }
             LogsSettingsView()
@@ -68,6 +70,21 @@ struct GeneralSettingsView: View {
             }
 
             Section {
+                Picker(L10n.string("settings.appearance.label"),
+                       selection: $config.appearance) {
+                    ForEach(AppAppearance.allCases) { a in
+                        Text(a.displayName).tag(a)
+                    }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text(L10n.string("settings.appearance.section"))
+            } footer: {
+                Text(L10n.string("settings.appearance.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+
+            Section {
                 Picker(L10n.string("settings.postcreate.label"),
                        selection: $config.postCreateBehavior) {
                     ForEach(PostCreateBehavior.allCases) { behavior in
@@ -108,6 +125,56 @@ struct GeneralSettingsView: View {
                 Text(L10n.string("settings.rightclick.section"))
             } footer: {
                 Text(L10n.string("settings.rightclick.showseparators.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+// MARK: - System
+
+struct SystemSettingsView: View {
+    @ObservedObject var config: Configuration
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(L10n.string("settings.scroll.invertv.label"),
+                       isOn: $config.invertVerticalScroll)
+                Toggle(L10n.string("settings.scroll.inverth.label"),
+                       isOn: $config.invertHorizontalScroll)
+                if (config.invertVerticalScroll || config.invertHorizontalScroll)
+                    && !AccessibilityHelper.isTrusted {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(L10n.string("settings.scroll.needacc"))
+                            .font(.callout)
+                        Spacer()
+                        Button(L10n.string("perm.acc.opensettings")) {
+                            AccessibilityHelper.openSystemSettings()
+                        }
+                    }
+                }
+            } header: {
+                Text(L10n.string("settings.scroll.section"))
+            } footer: {
+                Text(L10n.string("settings.scroll.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle(L10n.string("settings.sleep.prevent.label"),
+                       isOn: $config.preventSleep)
+                Toggle(L10n.string("settings.sleep.display.label"),
+                       isOn: $config.preventDisplaySleep)
+                    .disabled(!config.preventSleep)
+            } header: {
+                Text(L10n.string("settings.sleep.section"))
+            } footer: {
+                Text(L10n.string("settings.sleep.footer"))
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

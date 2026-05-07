@@ -15,6 +15,7 @@ final class NewKitAppMain {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBar: StatusBarController?
+    private var configObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.purgeOldLogs()
@@ -25,6 +26,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PendingCommandWatcher.shared.start()
         if AccessibilityHelper.isTrusted {
             RightClickMonitor.shared.start()
+        }
+        ScrollInverter.shared.apply()
+        SleepGuard.shared.apply()
+        AppAppearance.apply(Configuration.shared.appearance)
+        configObserver = NotificationCenter.default.addObserver(
+            forName: Configuration.didChange, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                ScrollInverter.shared.apply()
+                SleepGuard.shared.apply()
+                AppAppearance.apply(Configuration.shared.appearance)
+            }
         }
         OnboardingWindowController.shared.showIfNeeded()
 

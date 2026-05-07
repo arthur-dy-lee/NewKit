@@ -26,6 +26,24 @@
 "logs.error.empty"  = "No logs yet — use the app a bit, then export.";
 "logs.footer"       = "Logs are stored locally and rotated after 14 days. Nothing is uploaded.";
 "settings.tab.about"             = "About";
+"settings.tab.system"            = "System";
+
+/* System tab — reverse scrolling */
+"settings.scroll.section"        = "Mouse & Trackpad";
+"settings.scroll.invertv.label"  = "Reverse vertical scroll";
+"settings.scroll.inverth.label"  = "Reverse horizontal scroll";
+"settings.scroll.footer"         = "Flips the scroll direction system-wide. Requires Accessibility permission. Independent of the system's \"Natural scrolling\" setting — toggle whichever direction feels right.";
+"settings.scroll.needacc"        = "Needs Accessibility permission to take effect.";
+
+/* System tab — prevent sleep */
+"settings.sleep.section"         = "Keep Awake";
+"settings.sleep.prevent.label"   = "Prevent the Mac from sleeping";
+"settings.sleep.display.label"   = "Also keep the display awake";
+"settings.sleep.footer"          = "Equivalent to running \"caffeinate\" while the toggle is on. Releases automatically when NewKit quits.";
+
+/* Status bar quick toggle */
+"menu.preventsleep"              = "Prevent Sleep";
+"menu.sleepdisplaysnow"          = "Sleep Displays Now";
 
 /* Right-click menu header */
 "menu.header.newhere" = "New file here";
@@ -60,6 +78,14 @@
 "settings.language.label"   = "UI language";
 "settings.language.footer"  = "Defaults to the system language. Menus and settings update immediately when changed.";
 "language.system"           = "Follow System";
+
+/* Appearance */
+"settings.appearance.section" = "Appearance";
+"settings.appearance.label"   = "Theme";
+"settings.appearance.footer"  = "Takes effect immediately. \"Follow System\" tracks macOS's automatic light/dark schedule.";
+"appearance.system"           = "Follow System";
+"appearance.light"            = "Light";
+"appearance.dark"             = "Dark";
 
 /* Right-click separators toggle */
 "settings.rightclick.section"               = "Control + Right-click menu";
