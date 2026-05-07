@@ -2,7 +2,7 @@
 
 English · [中文](./README.md)
 
-> A fast file-creation tool for macOS, inspired by Easy New File. Create txt / md / py / xlsx / docx / pptx / etc. anywhere in Finder — no more "open app → save as → pick path."
+> A fast file-creation tool for macOS, inspired by Easy New File. Create txt / md / py / xlsx / docx / pptx / etc. anywhere in Finder — no more "open app → save as → pick path." Starting with 1.0.0, NewKit also bundles a few handy system utilities: reverse scrolling, prevent sleep, sleep displays now, and light/dark theme.
 
 <p align="center">
   <img src="NewKit_1024.png" width="180" alt="NewKit">
@@ -22,6 +22,13 @@ English · [中文](./README.md)
 - 🔁 **Automatic numeric suffix on collision** (`Untitled 2.txt`, ...)
 - 🔧 **CLI**: `newkit new py ./src` for the terminal-inclined
 - 📜 **Local logs**: `~/Library/Logs/NewKit/`, one-click zip export
+
+### New in 1.0.0 — system utilities
+
+- 🖱️ **Reverse scrolling**: mouse wheel & trackpad, vertical and horizontal directions toggle independently (CGEventTap-based, requires Accessibility; orthogonal to macOS "Natural scrolling")
+- ☕ **Prevent sleep**: Caffeine-style status-bar toggle, with optional "also keep display awake" (IOPMAssertion, no extra permissions)
+- 🖥️ **Sleep displays now**: status-bar action — black screen instantly, system stays awake (wraps `pmset displaysleepnow`)
+- 🎨 **Theme**: Light / Dark / Follow System, applied app-wide and live
 
 ---
 
@@ -128,6 +135,7 @@ See [BUILD.md → Signing & Notarization](./BUILD.md#八签名与公证) for the
 - ✅ M3 V1.0: template variables / blank Office OOXML templates / template-override UI / CLI / log export
 - ✅ M4: Developer ID signing + Apple notarization + DMG packaging script
 - ✅ M5: "Open Terminal" built-in action / drag-to-reorder file types
+- ✅ M6 (1.0.0): reverse scrolling / prevent sleep / sleep displays now / light-dark theme
 - ⏳ Planned: Sparkle auto-update / GitHub Releases CI auto-build
 
 ---

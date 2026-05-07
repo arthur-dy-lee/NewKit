@@ -2,7 +2,7 @@
 
 [English](./README.en.md) · 中文
 
-> 一款 macOS 上的快速新建文件工具，对标 Easy New File。在 Finder 里随手新建 txt / md / py / xlsx / docx / pptx 等任意文件，不用再"打开应用 → 另存为 → 选路径"。
+> 一款 macOS 上的快速新建文件工具，对标 Easy New File。在 Finder 里随手新建 txt / md / py / xlsx / docx / pptx 等任意文件，不用再"打开应用 → 另存为 → 选路径"。1.0.0 起还顺手集成了几个常用系统小工具：反向滚动、防止休眠、立即关闭显示器、浅深主题切换。
 
 <p align="center">
   <img src="NewKit_1024.png" width="180" alt="NewKit">
@@ -22,6 +22,13 @@
 - 🔁 **重名自动追加序号**（`Untitled 2.txt` ...）
 - 🔧 **CLI 工具**：`newkit new py ./src` 适合程序员
 - 📜 **本地日志**：`~/Library/Logs/NewKit/`，一键导出 zip
+
+### 1.0.0 新增系统小工具
+
+- 🖱️ **反向滚动**：鼠标滚轮 / 触摸板，垂直与水平方向独立反向（基于 CGEventTap，需要辅助功能权限；与系统的「自然滚动」相互独立）
+- ☕ **防止休眠**：Caffeinated 风格，状态栏菜单一键开关，可选「同时保持屏幕常亮」（基于 IOPMAssertion，无需任何额外权限）
+- 🖥️ **立即关闭显示器**：状态栏菜单按钮，一点立刻黑屏，不睡眠系统（封装 `pmset displaysleepnow`）
+- 🎨 **主题切换**：浅色 / 深色 / 跟随系统，立即生效，影响整个 App 的 AppKit 控件
 
 ---
 
@@ -128,6 +135,7 @@ Tools/build_dmg.sh --notarize
 - ✅ M3 V1.0：模板变量 / Office OOXML 空白模板 / 模板覆盖 UI / CLI / 日志导出
 - ✅ M4：Developer ID 签名 + Apple 公证 + DMG 打包脚本
 - ✅ M5：「打开终端」内置动作 / 文件类型拖拽排序
+- ✅ M6 (1.0.0)：反向滚动 / 防止休眠 / 立即关闭显示器 / 浅深主题
 - ⏳ 待办：Sparkle 自动更新、GitHub Releases CI 自动出包
 
 ---
