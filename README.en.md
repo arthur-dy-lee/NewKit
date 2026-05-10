@@ -2,7 +2,7 @@
 
 English · [中文](./README.md)
 
-> A fast file-creation tool for macOS, inspired by Easy New File. Create txt / md / py / xlsx / docx / pptx / etc. anywhere in Finder — no more "open app → save as → pick path." Starting with 1.0.0, NewKit also bundles a few handy system utilities: reverse scrolling, prevent sleep, sleep displays now, and light/dark theme.
+> A fast file-creation tool for macOS, inspired by Easy New File. Create txt / md / py / xlsx / docx / pptx / etc. anywhere in Finder — no more "open app → save as → pick path." Starting with 1.0.0, NewKit also bundles a few handy system utilities: reverse scrolling, prevent sleep, sleep displays now, and light/dark theme. Later builds add Mos / LinearMouse-style mouse enhancements: **silky scroll**, **linear pointer (acceleration disabled)**, and **independent mouse / trackpad scroll inversion**.
 
 <p align="center">
   <img src="NewKit_1024.png" width="180" alt="NewKit">
@@ -23,12 +23,21 @@ English · [中文](./README.md)
 - 🔧 **CLI**: `newkit new py ./src` for the terminal-inclined
 - 📜 **Local logs**: `~/Library/Logs/NewKit/`, one-click zip export
 
-### New in 1.0.0 — system utilities
+### 1.0.0 — system utilities
 
-- 🖱️ **Reverse scrolling**: mouse wheel & trackpad, vertical and horizontal directions toggle independently (CGEventTap-based, requires Accessibility; orthogonal to macOS "Natural scrolling")
+- 🖱️ **Reverse scrolling** (split): independent toggles for **mouse wheel** and **trackpad / Magic Mouse**, each with vertical & horizontal. CGEventTap-based, orthogonal to macOS "Natural scrolling". Requires Accessibility.
 - ☕ **Prevent sleep**: Caffeine-style status-bar toggle, with optional "also keep display awake" (IOPMAssertion, no extra permissions)
 - 🖥️ **Sleep displays now**: status-bar action — black screen instantly, system stays awake (wraps `pmset displaysleepnow`)
 - 🎨 **Theme**: Light / Dark / Follow System, applied app-wide and live
+
+### Mouse enhancements (Mos / LinearMouse-style)
+
+- 🌊 **Silky scroll** (mouse wheel): replaces Mac's chunky line-by-line wheel motion with an animated, pixel-precise scroll — fixes the jerky feel when scrolling back. Trackpad and Magic Mouse gestures are left untouched; Cmd / Opt / Ctrl / Shift + wheel keeps its original step behavior so zooming still works.
+  - **Scroll distance**: pixels per wheel notch (default 1.00x ≈ 36 px; range 0.25x – 3.00x)
+  - **Animation length**: how long one notch glides (80 ms snappy, 220 ms default ≈ Mos, 600 ms floaty; range 80 – 600 ms)
+- ➡️ **Linear pointer** (acceleration disabled): removes Mac's mouse acceleration curve so cursor motion is linear — 1 cm of mouse travel is always the same cursor distance, like Windows / LinearMouse. **Mouse-only**; trackpad acceleration is preserved. Built on IOHIDEventSystemClient (private API), setting `HIDPointerAcceleration` to -1 per matched mouse service.
+  - **Pointer speed**: overall sensitivity once linearized (1.0x = system current; 1.5x for big displays, 0.7x for fine work; range 0.25x – 3.00x)
+  - Original system settings are restored when the toggle is turned off; if you plug in a new mouse while it's on, toggle it off and back on to apply
 
 ---
 
@@ -136,6 +145,7 @@ See [BUILD.md → Signing & Notarization](./BUILD.md#八签名与公证) for the
 - ✅ M4: Developer ID signing + Apple notarization + DMG packaging script
 - ✅ M5: "Open Terminal" built-in action / drag-to-reorder file types
 - ✅ M6 (1.0.0): reverse scrolling / prevent sleep / sleep displays now / light-dark theme
+- ✅ M7: mouse enhancements — silky scroll / linear pointer (no acceleration) / mouse-vs-trackpad split inversion / theme-adaptive menu icons
 - ⏳ Planned: Sparkle auto-update / GitHub Releases CI auto-build
 
 ---

@@ -6,6 +6,7 @@ final class StatusBarController {
     private var statusItem: NSStatusItem?
     private let menuRefresher = MenuRefresher()
     private var configObserver: NSObjectProtocol?
+    private var displayObserver: NSObjectProtocol?
 
     init() {
         applyVisibility()
@@ -13,6 +14,14 @@ final class StatusBarController {
             forName: Configuration.didChange, object: nil, queue: .main
         ) { [weak self] _ in
             self?.applyVisibility()
+            self?.rebuildMenu()
+        }
+        // Rebuild when the built-in display is disabled/enabled, or when the
+        // display configuration changes (e.g. external monitor plugged in) —
+        // so the menu item's enabled / checked state stays accurate.
+        displayObserver = NotificationCenter.default.addObserver(
+            forName: BuiltInDisplayDisabler.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
             self?.rebuildMenu()
         }
     }
@@ -43,6 +52,10 @@ final class StatusBarController {
     func rebuildMenu() {
         guard let statusItem else { return }
         let menu = NSMenu()
+        // Items manage their own enabled state — we need this so the
+        // "Disable Built-in Display" toggle can stay greyed out when there
+        // is no external display. Otherwise NSMenu would re-enable it.
+        menu.autoenablesItems = false
 
         let header = NSMenuItem(title: L10n.string("menu.header.newin"),
                                 action: nil, keyEquivalent: "")
@@ -58,9 +71,8 @@ final class StatusBarController {
                                       keyEquivalent: "")
                 item.target = self
                 item.representedObject = type
-                if let symbol = type.symbolName,
-                   let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-                    item.image = image
+                if let symbol = type.symbolName {
+                    item.image = MenuIcon.symbol(symbol)
                 }
                 menu.addItem(item)
             case .separator:
@@ -73,34 +85,45 @@ final class StatusBarController {
                                   action: #selector(openTerminal(_:)),
                                   keyEquivalent: "")
             term.target = self
-            if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil) {
-                term.image = img
-            }
+            term.image = MenuIcon.symbol("terminal")
             menu.addItem(term)
         }
 
         menu.addItem(.separator())
+
+        // Immediate "do it now" actions go first — they're what users open the
+        // menu for. The persistent "Prevent Sleep" toggle sits below them so
+        // its on/off check-mark doesn't get confused with a tap action.
+        let displayOff = NSMenuItem(title: L10n.string("menu.sleepdisplaysnow"),
+                                    action: #selector(sleepDisplaysNow(_:)),
+                                    keyEquivalent: "")
+        displayOff.target = self
+        displayOff.image = MenuIcon.symbol("lock.display")
+        menu.addItem(displayOff)
+
+        let builtInOff = NSMenuItem(title: L10n.string("menu.disablebuiltin"),
+                                    action: #selector(toggleBuiltInDisplay(_:)),
+                                    keyEquivalent: "")
+        builtInOff.target = self
+        builtInOff.state = BuiltInDisplayDisabler.shared.isBuiltInDisabled ? .on : .off
+        builtInOff.isEnabled = BuiltInDisplayDisabler.shared.canToggle
+        builtInOff.image = MenuIcon.symbol("laptopcomputer.slash")
+        menu.addItem(builtInOff)
+
+        let systemSleep = NSMenuItem(title: L10n.string("menu.sleepnow"),
+                                     action: #selector(sleepSystemNow(_:)),
+                                     keyEquivalent: "")
+        systemSleep.target = self
+        systemSleep.image = MenuIcon.symbol("moon.zzz")
+        menu.addItem(systemSleep)
 
         let sleepItem = NSMenuItem(title: L10n.string("menu.preventsleep"),
                                    action: #selector(togglePreventSleep(_:)),
                                    keyEquivalent: "")
         sleepItem.target = self
         sleepItem.state = Configuration.shared.preventSleep ? .on : .off
-        if let img = NSImage(systemSymbolName: "cup.and.saucer",
-                             accessibilityDescription: nil) {
-            sleepItem.image = img
-        }
+        sleepItem.image = MenuIcon.symbol("cup.and.saucer")
         menu.addItem(sleepItem)
-
-        let displayOff = NSMenuItem(title: L10n.string("menu.sleepdisplaysnow"),
-                                    action: #selector(sleepDisplaysNow(_:)),
-                                    keyEquivalent: "")
-        displayOff.target = self
-        if let img = NSImage(systemSymbolName: "display.slash",
-                             accessibilityDescription: nil) {
-            displayOff.image = img
-        }
-        menu.addItem(displayOff)
 
         menu.addItem(.separator())
 
@@ -115,11 +138,13 @@ final class StatusBarController {
                                action: #selector(openPreferences(_:)),
                                keyEquivalent: ",")
         prefs.target = self
+        prefs.image = MenuIcon.symbol("gear")
         menu.addItem(prefs)
 
         let quit = NSMenuItem(title: L10n.string("menu.quit"),
                               action: #selector(NSApplication.terminate(_:)),
                               keyEquivalent: "q")
+        quit.image = MenuIcon.symbol("power")
         menu.addItem(quit)
 
         menu.delegate = menuRefresher
@@ -163,6 +188,14 @@ final class StatusBarController {
 
     @objc private func sleepDisplaysNow(_ sender: Any?) {
         DisplaySleeper.sleepNow()
+    }
+
+    @objc private func sleepSystemNow(_ sender: Any?) {
+        SystemSleeper.sleepNow()
+    }
+
+    @objc private func toggleBuiltInDisplay(_ sender: Any?) {
+        BuiltInDisplayDisabler.shared.toggle()
     }
 }
 

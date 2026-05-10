@@ -59,9 +59,8 @@ final class NewKitFinderSync: FIFinderSync {
             let item = NSMenuItem(title: entry.title, action: #selector(handle(_:)), keyEquivalent: "")
             item.target = self
             item.tag = tag
-            if let symbol = entry.symbolName,
-               let img = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-                item.image = img
+            if let symbol = entry.symbolName {
+                item.image = Self.adaptiveSymbolImage(symbol)
             }
             menu.addItem(item)
         }
@@ -181,6 +180,39 @@ final class NewKitFinderSync: FIFinderSync {
     }
 
     override func endObservingDirectory(at url: URL) { }
+
+    /// Build a menu icon that re-tints itself for the appearance Finder is
+    /// currently rendering with. Setting `image.isTemplate = true` is normally
+    /// enough — but when `FIFinderSync` injects items into Finder's native
+    /// contextual menu, the template flag travels through XPC and Finder's
+    /// merged-menu renderer doesn't always honour it (the user reports the
+    /// glyphs stay literally black in dark mode). Instead we hand back an
+    /// `NSImage` whose drawing handler runs at every render — it reads the
+    /// active appearance there and paints the symbol with `NSColor.labelColor`,
+    /// which is itself appearance-aware. This is the same trick used by other
+    /// dark-mode-correct Finder extensions.
+    private static func adaptiveSymbolImage(_ name: String, pointSize: CGFloat = 14) -> NSImage? {
+        let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+        guard let template = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(cfg) else {
+            return nil
+        }
+        template.isTemplate = true
+        let size = template.size
+        let dynamic = NSImage(size: size, flipped: false) { rect in
+            // Render the template into the current context and recolor its
+            // opaque pixels with labelColor (which auto-adapts to the
+            // current appearance — black on light, white on dark).
+            template.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            NSColor.labelColor.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
+        // Leave isTemplate=false so AppKit doesn't try to re-tint our already
+        // tinted bitmap. This is intentional.
+        dynamic.isTemplate = false
+        return dynamic
+    }
 }
 
 private extension String {

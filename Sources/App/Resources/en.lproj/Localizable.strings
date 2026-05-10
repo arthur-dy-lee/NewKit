@@ -29,11 +29,25 @@
 "settings.tab.system"            = "System";
 
 /* System tab — reverse scrolling */
-"settings.scroll.section"        = "Mouse & Trackpad";
-"settings.scroll.invertv.label"  = "Reverse vertical scroll";
-"settings.scroll.inverth.label"  = "Reverse horizontal scroll";
-"settings.scroll.footer"         = "Flips the scroll direction system-wide. Requires Accessibility permission. Independent of the system's \"Natural scrolling\" setting — toggle whichever direction feels right.";
-"settings.scroll.needacc"        = "Needs Accessibility permission to take effect.";
+"settings.scroll.section"          = "Reverse Scrolling";
+"settings.scroll.mouse.label"      = "Reverse mouse wheel";
+"settings.scroll.trackpad.v.label" = "Reverse trackpad vertical scroll";
+"settings.scroll.trackpad.h.label" = "Reverse trackpad horizontal scroll";
+"settings.scroll.footer"           = "Mouse and trackpad are controlled separately. Mouse offers vertical only — almost no one needs to reverse a sideways tilt wheel. Requires Accessibility permission. Independent of the system's \"Natural scrolling\" setting.";
+"settings.scroll.needacc"          = "Needs Accessibility permission to take effect.";
+
+/* System tab — smooth scrolling for mice */
+"settings.smoothscroll.section"           = "Smooth Scrolling";
+"settings.smoothscroll.label"             = "Silky scroll for mouse wheel";
+"settings.smoothscroll.distance.label"    = "Scroll distance";
+"settings.smoothscroll.duration.label"    = "Animation length";
+"settings.smoothscroll.footer"            = "Affects: mouse-wheel scrolling (pages and lists).\nReplaces Mac's chunky line-by-line motion with an animated, pixel-precise scroll — fixes the jerky feel when scrolling back. Trackpad and Magic Mouse gestures are left untouched. Cmd / Opt / Ctrl / Shift + wheel keep their original step behavior so zooming still works.\n• Scroll distance: pixels per wheel notch (1.00x ≈ 36 px; raise to scroll more per click, lower for finer control)\n• Animation length: how long one notch glides (80 ms = snappy, 220 ms ≈ Mos default, 600 ms = floaty)\nRequires Accessibility permission.";
+
+/* System tab — linear pointer (no acceleration) */
+"settings.linearpointer.section"          = "Pointer Linearization";
+"settings.linearpointer.label"            = "Disable mouse pointer acceleration";
+"settings.linearpointer.speed.label"      = "Pointer speed";
+"settings.linearpointer.footer"           = "Affects: the mouse cursor's overall movement (not the wheel).\nMac applies an acceleration curve by default — moving slowly travels less, moving fast travels far. That's awkward for precision aiming. With this on, motion is linear: 1 cm of mouse travel is always the same cursor distance, like Windows / LinearMouse. Trackpad acceleration is preserved.\n• Pointer speed: overall sensitivity once linearized (1.0x = system current; 1.5x faster for big displays, 0.7x steadier for fine work)\nOriginal settings are restored when the toggle is turned off; if you plug in a new mouse while it's on, toggle it off and back on to apply.";
 
 /* System tab — prevent sleep */
 "settings.sleep.section"         = "Keep Awake";
@@ -44,6 +58,8 @@
 /* Status bar quick toggle */
 "menu.preventsleep"              = "Prevent Sleep";
 "menu.sleepdisplaysnow"          = "Sleep Displays Now";
+"menu.sleepnow"                  = "Sleep Now";
+"menu.disablebuiltin"            = "Disable Built-in Display";
 
 /* Right-click menu header */
 "menu.header.newhere" = "New file here";
@@ -57,8 +73,9 @@
 "perm.acc.footer"       = "Hold Control while right-clicking inside Finder to open the NewKit menu. Without permission, only the menu bar icon, shortcut, and floating panel work.";
 
 /* Shortcuts */
-"shortcuts.toggle.label"  = "Toggle floating new file panel";
-"shortcuts.footer"        = "Click to record a new shortcut, or use the × button to clear it. Avoid keys your IDE uses (e.g. F8).";
+"shortcuts.toggle.label"          = "Toggle floating new file panel";
+"shortcuts.builtindisplay.label"  = "Toggle built-in display";
+"shortcuts.footer"                = "Click to record a new shortcut, or use the × button to clear it. Avoid keys your IDE uses (e.g. F8). \"Toggle built-in display\" is a safety net — if the menu bar is gone, the shortcut still brings the built-in panel back.";
 
 /* Floating panel */
 "floating.title" = "Create in current folder";

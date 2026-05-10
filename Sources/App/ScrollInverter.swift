@@ -13,8 +13,9 @@ final class ScrollInverter: @unchecked Sendable {
     private init() {}
 
     private let lock = NSLock()
-    private var _invertVertical: Bool = false
-    private var _invertHorizontal: Bool = false
+    private var _invertMouseV: Bool = false
+    private var _invertTrackpadV: Bool = false
+    private var _invertTrackpadH: Bool = false
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     /// Toggled to true the first time the C callback fires; used to confirm the tap is alive.
@@ -22,29 +23,27 @@ final class ScrollInverter: @unchecked Sendable {
 
     /// Read by the C callback on the run-loop thread; protected by `lock` so the
     /// main-thread writer (`apply()`) and the event-tap reader don't race.
-    fileprivate var invertVertical: Bool {
+    fileprivate func snapshot() -> (mouseV: Bool, padV: Bool, padH: Bool) {
         lock.lock(); defer { lock.unlock() }
-        return _invertVertical
-    }
-    fileprivate var invertHorizontal: Bool {
-        lock.lock(); defer { lock.unlock() }
-        return _invertHorizontal
+        return (_invertMouseV, _invertTrackpadV, _invertTrackpadH)
     }
 
     /// Pulls the current toggle state from `Configuration` and starts/stops the
     /// tap to match. Safe to call repeatedly.
     @MainActor
     func apply() {
-        let v = Configuration.shared.invertVerticalScroll
-        let h = Configuration.shared.invertHorizontalScroll
+        let mv = Configuration.shared.invertMouseScroll
+        let tv = Configuration.shared.invertTrackpadVerticalScroll
+        let th = Configuration.shared.invertTrackpadHorizontalScroll
         lock.lock()
-        _invertVertical = v
-        _invertHorizontal = h
+        _invertMouseV = mv
+        _invertTrackpadV = tv
+        _invertTrackpadH = th
         lock.unlock()
 
-        Log.info("ScrollInverter.apply v=\(v) h=\(h) trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
+        Log.info("ScrollInverter.apply mouseV=\(mv) padV=\(tv) padH=\(th) trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
 
-        if v || h {
+        if mv || tv || th {
             startIfNeeded()
         } else {
             stop()
@@ -120,13 +119,27 @@ private func scrollEventCallback(
         inverter.didLogFirstEvent = true
         Log.info("ScrollInverter: first scroll event intercepted (tap is alive)")
     }
-    let invertV = inverter.invertVertical
-    let invertH = inverter.invertHorizontal
+    let (mouseV, padV, padH) = inverter.snapshot()
 
-    if invertV {
-        // Three parallel fields describe the same scroll: line-step, fixed-point
-        // and pixel-precise (trackpad). Flip all three so apps reading any of
-        // them see a consistent direction.
+
+    // Decide what physical device this event came from. SmoothScroller may
+    // have already converted a discrete mouse-wheel event into a continuous
+    // pixel-precise stream — in that case `isContinuous` is misleading, so
+    // we trust the SmoothScroller tag first.
+    let isFromMouseWheel: Bool
+    if event.getIntegerValueField(.eventSourceUserData) == SmoothScroller.injectedTag {
+        isFromMouseWheel = true
+    } else {
+        isFromMouseWheel = event.getIntegerValueField(.scrollWheelEventIsContinuous) == 0
+    }
+
+    // Three parallel fields describe the same scroll: line-step, fixed-point,
+    // and pixel-precise. Flip all three on whichever axes apply so apps
+    // reading any of them see a consistent direction.
+    let invertVertical = isFromMouseWheel ? mouseV : padV
+    let invertHorizontal = isFromMouseWheel ? false : padH
+
+    if invertVertical {
         let dy = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
         let fy = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
         let py = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
@@ -134,7 +147,7 @@ private func scrollEventCallback(
         event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: -fy)
         event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: -py)
     }
-    if invertH {
+    if invertHorizontal {
         let dx = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
         let fx = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
         let px = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)

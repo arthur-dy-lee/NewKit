@@ -62,11 +62,21 @@ final class Configuration: ObservableObject {
         static let separatorLabels   = "separatorLabels"        // Data ([String:String])
         static let showSeparatorsInRightClick = "showSeparatorsInRightClickMenu" // Bool
         static let showOpenTerminal  = "showOpenTerminal"        // Bool (default true)
-        static let invertVerticalScroll   = "invertVerticalScroll"   // Bool (default false)
-        static let invertHorizontalScroll = "invertHorizontalScroll" // Bool (default false)
+        // Legacy keys (pre-split). Read once at init for migration, then ignored.
+        static let legacyInvertVertical   = "invertVerticalScroll"
+        static let legacyInvertHorizontal = "invertHorizontalScroll"
+        static let legacyInvertTrackpad   = "invertTrackpadScroll"
+        static let invertMouseScroll              = "invertMouseScroll"             // Bool (default false) — mouse wheel, vertical only
+        static let invertTrackpadVerticalScroll   = "invertTrackpadVerticalScroll"  // Bool (default false)
+        static let invertTrackpadHorizontalScroll = "invertTrackpadHorizontalScroll"// Bool (default false)
         static let preventSleep        = "preventSleep"        // Bool (default false)
         static let preventDisplaySleep = "preventDisplaySleep" // Bool (default false)
         static let appearance          = "appearance"          // String (AppAppearance raw)
+        static let smoothScrollEnabled       = "smoothScrollEnabled"        // Bool (default false)
+        static let smoothScrollMultiplier    = "smoothScrollMultiplier"     // Double (default 1.0)
+        static let smoothScrollDurationMs    = "smoothScrollDurationMs"     // Double (default 220)
+        static let linearPointerEnabled      = "linearPointerEnabled"       // Bool (default false)
+        static let pointerSpeedMultiplier    = "pointerSpeedMultiplier"     // Double (default 1.0)
     }
 
     /// Canonical display order of every known type (enabled or disabled, built-in or custom)
@@ -174,18 +184,28 @@ final class Configuration: ObservableObject {
         }
     }
 
-    /// Invert vertical scroll direction (mouse wheel + trackpad).
-    @Published var invertVerticalScroll: Bool {
+    /// Reverse mouse-wheel vertical direction. Horizontal is intentionally not
+    /// exposed — almost no one tilts a mouse wheel sideways, and lumping it in
+    /// would produce surprises for the few that do.
+    @Published var invertMouseScroll: Bool {
         didSet {
-            defaults.set(invertVerticalScroll, forKey: Key.invertVerticalScroll)
+            defaults.set(invertMouseScroll, forKey: Key.invertMouseScroll)
             broadcast()
         }
     }
 
-    /// Invert horizontal scroll direction (mouse wheel + trackpad).
-    @Published var invertHorizontalScroll: Bool {
+    /// Reverse trackpad / Magic Mouse vertical direction.
+    @Published var invertTrackpadVerticalScroll: Bool {
         didSet {
-            defaults.set(invertHorizontalScroll, forKey: Key.invertHorizontalScroll)
+            defaults.set(invertTrackpadVerticalScroll, forKey: Key.invertTrackpadVerticalScroll)
+            broadcast()
+        }
+    }
+
+    /// Reverse trackpad / Magic Mouse horizontal direction.
+    @Published var invertTrackpadHorizontalScroll: Bool {
+        didSet {
+            defaults.set(invertTrackpadHorizontalScroll, forKey: Key.invertTrackpadHorizontalScroll)
             broadcast()
         }
     }
@@ -211,6 +231,51 @@ final class Configuration: ObservableObject {
     @Published var appearance: AppAppearance {
         didSet {
             defaults.set(appearance.rawValue, forKey: Key.appearance)
+            broadcast()
+        }
+    }
+
+    /// Smooth out discrete mouse-wheel scrolling into pixel-precise animated steps.
+    /// Trackpad and Magic Mouse continuous scrolls are left untouched.
+    @Published var smoothScrollEnabled: Bool {
+        didSet {
+            defaults.set(smoothScrollEnabled, forKey: Key.smoothScrollEnabled)
+            broadcast()
+        }
+    }
+
+    /// Distance multiplier applied to each wheel notch (1.0 = default ~30 px per line).
+    /// Range 0.25–3.0.
+    @Published var smoothScrollMultiplier: Double {
+        didSet {
+            defaults.set(smoothScrollMultiplier, forKey: Key.smoothScrollMultiplier)
+            broadcast()
+        }
+    }
+
+    /// Approximate animation length for one wheel notch, in milliseconds.
+    /// Range 80–600. Higher = floatier; lower = snappier.
+    @Published var smoothScrollDurationMs: Double {
+        didSet {
+            defaults.set(smoothScrollDurationMs, forKey: Key.smoothScrollDurationMs)
+            broadcast()
+        }
+    }
+
+    /// Disable Mac's pointer acceleration for plugged-in mice (linear movement,
+    /// like Windows). Trackpad acceleration is intentionally left intact.
+    @Published var linearPointerEnabled: Bool {
+        didSet {
+            defaults.set(linearPointerEnabled, forKey: Key.linearPointerEnabled)
+            broadcast()
+        }
+    }
+
+    /// Mouse pointer speed multiplier when linearization is on.
+    /// Range 0.25–3.0; 1.0 = system default resolution.
+    @Published var pointerSpeedMultiplier: Double {
+        didSet {
+            defaults.set(pointerSpeedMultiplier, forKey: Key.pointerSpeedMultiplier)
             broadcast()
         }
     }
@@ -264,16 +329,35 @@ final class Configuration: ObservableObject {
             defaults.object(forKey: Key.showSeparatorsInRightClick) as? Bool ?? true
         self.showOpenTerminal =
             defaults.object(forKey: Key.showOpenTerminal) as? Bool ?? true
-        self.invertVerticalScroll =
-            defaults.object(forKey: Key.invertVerticalScroll) as? Bool ?? false
-        self.invertHorizontalScroll =
-            defaults.object(forKey: Key.invertHorizontalScroll) as? Bool ?? false
+        // Migrate older shapes of the toggle:
+        //   - Pre-split (one V/H pair for everything) → mouse vertical follows
+        //     the legacy V flag.
+        //   - Combined-trackpad (single trackpad on/off) → both V and H trackpad
+        //     follow it.
+        let legacyMouseV = defaults.object(forKey: Key.legacyInvertVertical) as? Bool ?? false
+        let legacyTrackpadCombined = defaults.object(forKey: Key.legacyInvertTrackpad) as? Bool ?? false
+        self.invertMouseScroll =
+            defaults.object(forKey: Key.invertMouseScroll) as? Bool ?? legacyMouseV
+        self.invertTrackpadVerticalScroll =
+            defaults.object(forKey: Key.invertTrackpadVerticalScroll) as? Bool ?? legacyTrackpadCombined
+        self.invertTrackpadHorizontalScroll =
+            defaults.object(forKey: Key.invertTrackpadHorizontalScroll) as? Bool ?? legacyTrackpadCombined
         self.preventSleep =
             defaults.object(forKey: Key.preventSleep) as? Bool ?? false
         self.preventDisplaySleep =
             defaults.object(forKey: Key.preventDisplaySleep) as? Bool ?? false
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
             ?? .system
+        self.smoothScrollEnabled =
+            defaults.object(forKey: Key.smoothScrollEnabled) as? Bool ?? false
+        self.smoothScrollMultiplier =
+            (defaults.object(forKey: Key.smoothScrollMultiplier) as? Double).map { max(0.25, min(3.0, $0)) } ?? 1.0
+        self.smoothScrollDurationMs =
+            (defaults.object(forKey: Key.smoothScrollDurationMs) as? Double).map { max(80, min(600, $0)) } ?? 220
+        self.linearPointerEnabled =
+            defaults.object(forKey: Key.linearPointerEnabled) as? Bool ?? false
+        self.pointerSpeedMultiplier =
+            (defaults.object(forKey: Key.pointerSpeedMultiplier) as? Double).map { max(0.25, min(3.0, $0)) } ?? 1.0
 
         reconcileOrder()
         publishVisibleSnapshot()

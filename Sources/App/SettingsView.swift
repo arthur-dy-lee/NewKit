@@ -38,6 +38,11 @@ struct ShortcutsSettingsView: View {
                     Spacer()
                     KeyboardShortcuts.Recorder(for: .toggleFloatingPanel)
                 }
+                HStack {
+                    Text(L10n.string("shortcuts.builtindisplay.label"))
+                    Spacer()
+                    KeyboardShortcuts.Recorder(for: .toggleBuiltInDisplay)
+                }
             } footer: {
                 Text(L10n.string("shortcuts.footer"))
                     .font(.footnote).foregroundStyle(.secondary)
@@ -141,11 +146,15 @@ struct SystemSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle(L10n.string("settings.scroll.invertv.label"),
-                       isOn: $config.invertVerticalScroll)
-                Toggle(L10n.string("settings.scroll.inverth.label"),
-                       isOn: $config.invertHorizontalScroll)
-                if (config.invertVerticalScroll || config.invertHorizontalScroll)
+                Toggle(L10n.string("settings.scroll.mouse.label"),
+                       isOn: $config.invertMouseScroll)
+                Toggle(L10n.string("settings.scroll.trackpad.v.label"),
+                       isOn: $config.invertTrackpadVerticalScroll)
+                Toggle(L10n.string("settings.scroll.trackpad.h.label"),
+                       isOn: $config.invertTrackpadHorizontalScroll)
+                if (config.invertMouseScroll
+                    || config.invertTrackpadVerticalScroll
+                    || config.invertTrackpadHorizontalScroll)
                     && !AccessibilityHelper.isTrusted {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -166,6 +175,50 @@ struct SystemSettingsView: View {
             }
 
             Section {
+                Toggle(L10n.string("settings.smoothscroll.label"),
+                       isOn: $config.smoothScrollEnabled)
+                if config.smoothScrollEnabled {
+                    LabeledSlider(
+                        label: L10n.string("settings.smoothscroll.distance.label"),
+                        value: $config.smoothScrollMultiplier,
+                        range: 0.25...3.0, step: 0.05,
+                        format: { String(format: "%.2fx", $0) }
+                    )
+                    LabeledSlider(
+                        label: L10n.string("settings.smoothscroll.duration.label"),
+                        value: $config.smoothScrollDurationMs,
+                        range: 80...600, step: 10,
+                        format: { "\(Int($0)) ms" }
+                    )
+                }
+            } header: {
+                Text(L10n.string("settings.smoothscroll.section"))
+            } footer: {
+                Text(L10n.string("settings.smoothscroll.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section {
+                Toggle(L10n.string("settings.linearpointer.label"),
+                       isOn: $config.linearPointerEnabled)
+                if config.linearPointerEnabled {
+                    LabeledSlider(
+                        label: L10n.string("settings.linearpointer.speed.label"),
+                        value: $config.pointerSpeedMultiplier,
+                        range: 0.25...3.0, step: 0.05,
+                        format: { String(format: "%.2fx", $0) }
+                    )
+                }
+            } header: {
+                Text(L10n.string("settings.linearpointer.section"))
+            } footer: {
+                Text(L10n.string("settings.linearpointer.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section {
                 Toggle(L10n.string("settings.sleep.prevent.label"),
                        isOn: $config.preventSleep)
                 Toggle(L10n.string("settings.sleep.display.label"),
@@ -180,6 +233,30 @@ struct SystemSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+/// Compact slider row used by the smooth-scroll and linear-pointer sections.
+/// Shows the current value next to the label so the user can see exactly what
+/// "1.20x" or "240 ms" means without dragging blind.
+private struct LabeledSlider: View {
+    let label: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let format: (Double) -> String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                Spacer()
+                Text(format(value))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Slider(value: $value, in: range, step: step)
+        }
     }
 }
 

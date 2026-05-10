@@ -28,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             RightClickMonitor.shared.start()
         }
         ScrollInverter.shared.apply()
+        SmoothScroller.shared.apply()
+        PointerLinearizer.shared.apply()
         SleepGuard.shared.apply()
         AppAppearance.apply(Configuration.shared.appearance)
         configObserver = NotificationCenter.default.addObserver(
@@ -35,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             MainActor.assumeIsolated {
                 ScrollInverter.shared.apply()
+                SmoothScroller.shared.apply()
+                PointerLinearizer.shared.apply()
                 SleepGuard.shared.apply()
                 AppAppearance.apply(Configuration.shared.appearance)
             }
@@ -59,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func registerGlobalShortcuts() {
         KeyboardShortcuts.onKeyDown(for: .toggleFloatingPanel) {
             FloatingPanelController.shared.toggle()
+        }
+        KeyboardShortcuts.onKeyDown(for: .toggleBuiltInDisplay) {
+            BuiltInDisplayDisabler.shared.toggle()
         }
     }
 }

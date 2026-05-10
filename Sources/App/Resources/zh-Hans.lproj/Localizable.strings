@@ -29,11 +29,25 @@
 "settings.tab.system"            = "系统";
 
 /* System tab — reverse scrolling */
-"settings.scroll.section"        = "鼠标与触摸板";
-"settings.scroll.invertv.label"  = "反向垂直滚动";
-"settings.scroll.inverth.label"  = "反向水平滚动";
-"settings.scroll.footer"         = "对全局滚动方向取反，需要辅助功能权限。与系统的「自然滚动」设置相互独立 — 哪个方向不顺手就反哪个。";
-"settings.scroll.needacc"        = "需要辅助功能权限才能生效。";
+"settings.scroll.section"          = "反向滚动";
+"settings.scroll.mouse.label"      = "反向鼠标滚轮";
+"settings.scroll.trackpad.v.label" = "反向触摸板垂直滚动";
+"settings.scroll.trackpad.h.label" = "反向触摸板水平滚动";
+"settings.scroll.footer"           = "鼠标和触摸板分别控制。鼠标只提供垂直反向 — 几乎没人需要反向横向滚轮。需要辅助功能权限，与系统「自然滚动」设置相互独立。";
+"settings.scroll.needacc"          = "需要辅助功能权限才能生效。";
+
+/* System tab — smooth scrolling for mice */
+"settings.smoothscroll.section"           = "丝滑滚动";
+"settings.smoothscroll.label"             = "鼠标滚轮丝滑滚动";
+"settings.smoothscroll.distance.label"    = "滚动距离";
+"settings.smoothscroll.duration.label"    = "动画时长";
+"settings.smoothscroll.footer"            = "影响：鼠标滚轮的滚动手感（页面 / 列表上下滚）。\n把 Mac 默认一格一格「咔哒」跳的滚动替换为像素级、带缓动的连续滚动 — 尤其修好了反向回滚时的顿挫。触控板和妙控鼠标的手势不受影响。Cmd / Opt / Ctrl / Shift + 滚轮 仍按原始步进处理，保留缩放等功能。\n• 滚动距离：一格滚轮对应多少像素（1.00x ≈ 36 px；调大滚得多，调小更精细）\n• 动画时长：一格滚动用多长时间漂过去（80 ms 干脆，220 ms 默认像 Mos，600 ms 很漂）\n需要辅助功能权限。";
+
+/* System tab — linear pointer (no acceleration) */
+"settings.linearpointer.section"          = "指针线性化";
+"settings.linearpointer.label"            = "禁用鼠标指针加速度";
+"settings.linearpointer.speed.label"      = "指针速度";
+"settings.linearpointer.footer"           = "影响：鼠标光标的整体移动（不是滚轮）。\nMac 默认开了「加速度」——慢推鼠标光标走得近、快推光标走得远，做精确瞄准时很别扭。开启后变成线性：推 1 cm 永远是同样的光标位移，跟 Windows / LinearMouse 一致。触控板加速度保持不变。\n• 指针速度：线性化之后整体的灵敏度（1.0x = 系统当前；1.5x 更快适合大屏，0.7x 更稳适合精细操作）\n关闭开关时会恢复原始设置；启用期间若插入新鼠标，请把开关切换关再打开以应用。";
 
 /* System tab — prevent sleep */
 "settings.sleep.section"         = "防止休眠";
@@ -44,6 +58,8 @@
 /* Status bar quick toggle */
 "menu.preventsleep"              = "防止休眠";
 "menu.sleepdisplaysnow"          = "立即关闭显示器";
+"menu.sleepnow"                  = "立即睡眠";
+"menu.disablebuiltin"            = "关闭内建显示器";
 
 /* Right-click menu header */
 "menu.header.newhere" = "在此处新建";
@@ -62,8 +78,9 @@
 "perm.acc.footer"       = "按住 Control 键并在 Finder 中右键，即可弹出 NewKit 菜单。未授权时，菜单栏图标、快捷键、浮动面板仍可正常使用。";
 
 /* Shortcuts */
-"shortcuts.toggle.label"  = "唤起浮动新建面板";
-"shortcuts.footer"        = "点击录制快捷键，或点 × 清空。避免使用 IDE 已占用的键（如 F8）。";
+"shortcuts.toggle.label"          = "唤起浮动新建面板";
+"shortcuts.builtindisplay.label"  = "切换内建显示器开关";
+"shortcuts.footer"                = "点击录制快捷键，或点 × 清空。避免使用 IDE 已占用的键（如 F8）。「切换内建显示器」是个保底入口 —— 万一菜单栏不可见，用快捷键也能把内建屏唤回来。";
 
 /* Floating panel */
 "floating.title" = "在当前文件夹新建";
