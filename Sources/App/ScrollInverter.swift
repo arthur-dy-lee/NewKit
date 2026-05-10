@@ -18,8 +18,11 @@ final class ScrollInverter: @unchecked Sendable {
     private var _invertTrackpadH: Bool = false
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    /// Toggled to true the first time the C callback fires; used to confirm the tap is alive.
-    fileprivate var didLogFirstEvent = false
+    /// Decremented from 5 → 0 as the C callback fires, with one detailed log
+    /// per remaining sample. Reset on every (re)create so each fresh tap gives
+    /// us a quick look at how it's deciding. Bounded so a session only ever
+    /// produces a handful of lines per toggle, not one per scroll event.
+    fileprivate var diagSamplesRemaining: Int = 0
 
     /// Read by the C callback on the run-loop thread; protected by `lock` so the
     /// main-thread writer (`apply()`) and the event-tap reader don't race.
@@ -81,7 +84,7 @@ final class ScrollInverter: @unchecked Sendable {
         CGEvent.tapEnable(tap: port, enable: true)
         self.tap = port
         self.runLoopSource = source
-        didLogFirstEvent = false
+        diagSamplesRemaining = 5
         Log.info("ScrollInverter: tap created and enabled")
     }
 
@@ -115,30 +118,52 @@ private func scrollEventCallback(
         return Unmanaged.passUnretained(event)
     }
     let inverter = Unmanaged<ScrollInverter>.fromOpaque(refcon).takeUnretainedValue()
-    if !inverter.didLogFirstEvent {
-        inverter.didLogFirstEvent = true
-        Log.info("ScrollInverter: first scroll event intercepted (tap is alive)")
-    }
     let (mouseV, padV, padH) = inverter.snapshot()
-
 
     // Decide what physical device this event came from. SmoothScroller may
     // have already converted a discrete mouse-wheel event into a continuous
     // pixel-precise stream — in that case `isContinuous` is misleading, so
     // we trust the SmoothScroller tag first.
+    let isInjectedByScroller =
+        event.getIntegerValueField(.eventSourceUserData) == SmoothScroller.injectedTag
+    let isContinuousField = event.getIntegerValueField(.scrollWheelEventIsContinuous)
     let isFromMouseWheel: Bool
-    if event.getIntegerValueField(.eventSourceUserData) == SmoothScroller.injectedTag {
+    if isInjectedByScroller {
         isFromMouseWheel = true
     } else {
-        isFromMouseWheel = event.getIntegerValueField(.scrollWheelEventIsContinuous) == 0
+        isFromMouseWheel = isContinuousField == 0
+    }
+
+    // Tap-order independence: if a raw (untagged) discrete wheel event arrives
+    // while SmoothScroller is on, SmoothScroller will swallow it and re-emit
+    // a tagged pixel-precise event at HID. We MUST NOT flip the raw one too,
+    // or the re-emission flips again and the two cancel out (net: no
+    // inversion). This case fires whenever ScrollInverter's tap was inserted
+    // ahead of SmoothScroller's in the cgSession chain — which depends on the
+    // order each subsystem last (re)started, so we cannot rely on it.
+    let smoothOn = SmoothScroller.shared.isEnabledForInverter
+    let deferToSmoothScroller =
+        !isInjectedByScroller && isContinuousField == 0 && smoothOn
+
+    let invertVertical = !deferToSmoothScroller && (isFromMouseWheel ? mouseV : padV)
+    let invertHorizontal = !deferToSmoothScroller && (isFromMouseWheel ? false : padH)
+
+    // First few events after each (re)create: log the full decision so a
+    // future "toggle is on but scroll doesn't flip" report can be diagnosed
+    // from the log alone without rebuilding with extra instrumentation.
+    if inverter.diagSamplesRemaining > 0 {
+        inverter.diagSamplesRemaining -= 1
+        let dyRaw = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
+        Log.info("ScrollInverter[diag] cont=\(isContinuousField) tagged=\(isInjectedByScroller) wheel=\(isFromMouseWheel) mouseV=\(mouseV) padV=\(padV) padH=\(padH) smoothOn=\(smoothOn) defer=\(deferToSmoothScroller) flipV=\(invertVertical) flipH=\(invertHorizontal) dy=\(dyRaw)")
+    }
+
+    if deferToSmoothScroller {
+        return Unmanaged.passUnretained(event)
     }
 
     // Three parallel fields describe the same scroll: line-step, fixed-point,
     // and pixel-precise. Flip all three on whichever axes apply so apps
     // reading any of them see a consistent direction.
-    let invertVertical = isFromMouseWheel ? mouseV : padV
-    let invertHorizontal = isFromMouseWheel ? false : padH
-
     if invertVertical {
         let dy = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
         let fy = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)

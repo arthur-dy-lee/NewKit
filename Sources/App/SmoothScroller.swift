@@ -51,6 +51,11 @@ final class SmoothScroller: @unchecked Sendable {
         return enabled
     }
 
+    /// Cross-subsystem read for `ScrollInverter`. Identical to `isEnabled` but
+    /// not `fileprivate`, so the inverter can decide whether to flip a raw
+    /// discrete wheel event now or wait for the tagged pixel re-emission.
+    var isEnabledForInverter: Bool { isEnabled }
+
     @MainActor
     func apply() {
         let on = Configuration.shared.smoothScrollEnabled
