@@ -6,7 +6,7 @@ packages:
     from: 2.2.0
 
 options:
-  bundleIdPrefix: app.newkit
+  bundleIdPrefix: com.codearthur.matrixapps
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -47,7 +47,7 @@ targets:
         codeSign: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.newkit.NewKit
+        PRODUCT_BUNDLE_IDENTIFIER: com.codearthur.matrixapps.newkit
         PRODUCT_NAME: NewKit
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: Sources/App/Info.plist
@@ -63,7 +63,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: newkit
-        PRODUCT_BUNDLE_IDENTIFIER: app.newkit.cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.codearthur.matrixapps.newkit.cli
         SKIP_INSTALL: YES
         CODE_SIGN_IDENTITY: "-"
 
@@ -82,7 +82,7 @@ targets:
       - path: Sources/App/SeparatorMenuItemFactory.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.newkit.NewKit.FinderExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.codearthur.matrixapps.newkit.FinderExtension
         PRODUCT_NAME: NewKitFinderExtension
         INFOPLIST_FILE: Sources/FinderExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/FinderExtension/FinderExtension.entitlements

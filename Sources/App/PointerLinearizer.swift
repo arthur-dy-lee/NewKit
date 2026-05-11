@@ -196,6 +196,8 @@ final class PointerLinearizer {
             .takeRetainedValue() as? NSNumber {
             return n.uint64Value
         }
-        return UInt64(ObjectIdentifier(service).hashValue)
+        // hashValue is Int (signed) — direct UInt64 conversion crashes when
+        // negative. truncatingIfNeeded reinterprets the bit pattern instead.
+        return UInt64(truncatingIfNeeded: ObjectIdentifier(service).hashValue)
     }
 }
