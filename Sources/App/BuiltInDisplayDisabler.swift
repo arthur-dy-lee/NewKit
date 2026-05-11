@@ -61,6 +61,16 @@ final class BuiltInDisplayDisabler {
     /// `CGConfigureDisplayMirrorOfDisplay` call doesn't race the OS's own
     /// reconfiguration and get immediately undone.
     private var pendingReconfigWork: DispatchWorkItem?
+    /// Delayed task that flips the toggle off when the external display has
+    /// been gone for a sustained period. We do NOT auto-restore the built-in
+    /// the first time `hasExternalDisplay` reads false — lid movement (even
+    /// without a full close) produces brief sub-second windows where the
+    /// external is missing from `CGGetActiveDisplayList`. Acting on those
+    /// flickers is what made the built-in spontaneously light up. Only after
+    /// the external is confirmed absent across the settle delay do we
+    /// actually restore.
+    private var externalGoneConfirmWork: DispatchWorkItem?
+    private static let externalGoneConfirmDelay: TimeInterval = 2.0
     /// Apple Silicon's `DisplayServicesSetBrightness` is animated, and the OS
     /// itself rewrites brightness during lid-open / wake. A single 0-write
     /// loses the race and the LCD flashes. Instead we pin brightness=0 by
@@ -137,6 +147,11 @@ final class BuiltInDisplayDisabler {
 
     @discardableResult
     func setDisabled(_ disabled: Bool) -> Bool {
+        // Any explicit user-facing transition supersedes a pending
+        // confirmation timer — drop it.
+        externalGoneConfirmWork?.cancel()
+        externalGoneConfirmWork = nil
+
         guard let displayID = Self.builtInDisplayID() else { return false }
 
         if disabled {
@@ -158,7 +173,9 @@ final class BuiltInDisplayDisabler {
                 return false
             }
             _ = (setLinearBrightness ?? setBrightness)?(displayID, 0.0)
+            blackoutGamma(displayID)
         } else {
+            restoreGamma(displayID)
             let saved = defaults.object(forKey: Self.savedBrightnessKey) as? Double ?? 1.0
             _ = (setLinearBrightness ?? setBrightness)?(displayID, Float(saved))
             _ = unmirror(builtIn: displayID)
@@ -169,6 +186,14 @@ final class BuiltInDisplayDisabler {
         if isBuiltInDisabled != disabled {
             isBuiltInDisabled = disabled
             NotificationCenter.default.post(name: Self.didChange, object: nil)
+            if disabled {
+                // Kick off the continuous gamma/brightness pin now so the
+                // very first reconfig event after toggling has us already
+                // ticking. Without this we'd only start the pin on the next
+                // reconfig callback, and the user would see a flash on the
+                // first lid open.
+                extendBrightnessPin(by: 0)
+            }
         }
         return true
     }
@@ -179,47 +204,65 @@ final class BuiltInDisplayDisabler {
         NotificationCenter.default.post(name: Self.didChange, object: nil)
 
         guard isBuiltInDisabled else { return }
+        if isSystemSleeping { return }
 
-        // Start pinning brightness=0 — a single write loses to the OS's own
-        // brightness restoration on lid-open. The pin keeps writing 0 every
-        // ~30ms for ~1.5s, long enough to dominate the OS's animated rewrite.
-        extendBrightnessPin(by: 1.5)
+        // Start (or extend) the gamma/brightness pin at the EARLIEST sign of
+        // a reconfig — including the begin callback, before the OS has
+        // finished its own reconfiguration. The lid-open flash happens
+        // because the OS resets gamma and lights the backlight as part of
+        // bringing the built-in back online, slightly before our CG callback
+        // is invoked. We can't run before the OS, but pinning here means our
+        // 30 ms tick reapplies gamma=0 as soon as the panel is addressable,
+        // shrinking the visible flash window to one or two frames.
+        extendBrightnessPin(by: 3.0)
 
         // Mirror reapplication only on the "end" half (the OS has finished
-        // its reconfig) and only when we're awake — during system sleep the
-        // external is gone from the active list and re-mirroring would fail.
-        // The wake handler picks it up.
+        // its reconfig) — re-mirroring on `begin` races the OS's own
+        // configuration and tends to be silently undone.
         if flags.contains(.beginConfigurationFlag) { return }
-        if isSystemSleeping { return }
+
+        // Reconcile immediately. The auto-restore decision (external gone →
+        // turn built-in back on) is now gated by a delayed confirmation
+        // inside applyDesiredState, so running it on every event is safe and
+        // means we re-mirror as soon as the OS drops our config.
         applyDesiredState(reason: "reconfig-end")
     }
 
     /// Reconcile the OS's current display state with our desired state.
-    /// Idempotent — safe to call from the reconfig debouncer or wake handler.
+    /// Idempotent — safe to call from the reconfig handler or wake handler.
+    ///
+    /// Critical invariant: this never calls `setDisabled(false)` directly on
+    /// a "missing external" reading. The active-display list flickers during
+    /// reconfig bursts (lid wiggle, mode change, sleep transitions), and a
+    /// single dropped frame is not enough evidence that the user unplugged
+    /// the external. Auto-restore goes through `scheduleExternalGoneCheck`
+    /// instead, which only fires after the external has been absent for the
+    /// full settle delay.
     private func applyDesiredState(reason: String) {
         guard isBuiltInDisabled else { return }
 
-        if !hasExternalDisplay {
-            Log.info("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — external gone, restoring built-in")
-            _ = setDisabled(false)
+        guard let displayID = Self.builtInDisplayID() else {
+            Log.info("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — built-in ID not found, deferring")
             return
         }
 
-        guard let displayID = Self.builtInDisplayID() else {
-            Log.error("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — built-in ID not found")
-            return
-        }
         guard let target = Self.firstExternalActiveDisplay() else {
-            Log.error("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — no external active")
+            Log.info("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — no external active right now, scheduling confirmation")
+            scheduleExternalGoneCheck(reason: reason)
             return
         }
+
+        // External is here — cancel any pending "external gone" pessimism
+        // from a previous flicker.
+        externalGoneConfirmWork?.cancel()
+        externalGoneConfirmWork = nil
 
         let currentMirror = CGDisplayMirrorsDisplay(displayID)
         if currentMirror != target {
-            // Mirror was dropped by the OS (clamshell open is the usual
-            // culprit — it brings the built-in back as a separate logical
-            // screen and the cursor can wander onto it). Re-mirror now;
-            // that's what blocks the cursor, not the brightness.
+            // Mirror was dropped by the OS (lid open in clamshell mode is the
+            // usual culprit — it brings the built-in back as a separate
+            // logical screen and the cursor can wander onto it). Re-mirror
+            // now; that's what blocks the cursor, not the brightness.
             let ok = mirror(builtIn: displayID, onto: target)
             Log.info("BuiltInDisplayDisabler: applyDesiredState(\(reason)) — re-mirrored built-in onto \(target), ok=\(ok) (was=\(currentMirror))")
         } else {
@@ -227,13 +270,77 @@ final class BuiltInDisplayDisabler {
         }
 
         _ = (setLinearBrightness ?? setBrightness)?(displayID, 0.0)
+        blackoutGamma(displayID)
 
         NotificationCenter.default.post(name: Self.didChange, object: nil)
+    }
+
+    /// Drives the built-in panel's gamma table to all-zero, so every pixel
+    /// renders as black regardless of backlight level. `DisplayServicesSet*Brightness`
+    /// gets clamped to ~6.25% after lid/reconfig events on Apple Silicon —
+    /// the LCD glows visibly even when we keep writing 0. Gamma is per-display,
+    /// applied at the framebuffer→panel stage (so it works with mirroring),
+    /// and survives reconfig events better than brightness.
+    private func blackoutGamma(_ id: CGDirectDisplayID) {
+        let rc = CGSetDisplayTransferByFormula(
+            id,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1
+        )
+        if rc != .success {
+            Log.error("BuiltInDisplayDisabler: gamma blackout rc=\(rc.rawValue)")
+        }
+    }
+
+    private func restoreGamma(_ id: CGDirectDisplayID) {
+        // Identity gamma: min=0, max=1, gamma=1.
+        let rc = CGSetDisplayTransferByFormula(
+            id,
+            0, 1, 1,
+            0, 1, 1,
+            0, 1, 1
+        )
+        if rc != .success {
+            Log.error("BuiltInDisplayDisabler: gamma restore rc=\(rc.rawValue)")
+        }
+    }
+
+    /// Defer the "external gone, restore built-in" decision. Reset on every
+    /// call — if the external comes back before the delay elapses, the
+    /// applyDesiredState path will cancel us and we'll never fire.
+    private func scheduleExternalGoneCheck(reason: String) {
+        externalGoneConfirmWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.externalGoneConfirmWork = nil
+                guard self.isBuiltInDisabled else { return }
+                if self.hasExternalDisplay {
+                    // External came back during the wait — re-apply mirror.
+                    self.applyDesiredState(reason: "external-back-after-flicker")
+                    return
+                }
+                Log.info("BuiltInDisplayDisabler: external confirmed gone (\(reason)), restoring built-in")
+                _ = self.setDisabled(false)
+            }
+        }
+        externalGoneConfirmWork = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.externalGoneConfirmDelay, execute: work
+        )
     }
 
     private func handleWillSleep() {
         isSystemSleeping = true
         wasDisabledBeforeSleep = isBuiltInDisabled
+        pendingReconfigWork?.cancel()
+        pendingReconfigWork = nil
+        // System sleep makes every external "gone" — but we must not let
+        // that turn the feature off, otherwise the user wakes up with the
+        // built-in lit. Cancel any pending confirmation.
+        externalGoneConfirmWork?.cancel()
+        externalGoneConfirmWork = nil
     }
 
     private func handleDidWake() {
@@ -258,14 +365,16 @@ final class BuiltInDisplayDisabler {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 
+    /// Ensures the brightness/gamma pin loop is running. Idempotent. The
+    /// `duration` parameter is retained for callsite clarity but no longer
+    /// gates the pin — the pin now runs continuously while the toggle is on,
+    /// because the lid-open flash is too fast to catch with a deadline-based
+    /// pin that starts only after a reconfig callback.
     private func extendBrightnessPin(by duration: TimeInterval) {
-        let newDeadline = Date().addingTimeInterval(duration)
-        if newDeadline > brightnessPinDeadline {
-            brightnessPinDeadline = newDeadline
-        }
+        guard isBuiltInDisabled else { return }
         if !brightnessPinScheduled {
             brightnessPinScheduled = true
-            Log.info("BuiltInDisplayDisabler: brightness pin started, holding 0 until \(brightnessPinDeadline)")
+            Log.info("BuiltInDisplayDisabler: brightness/gamma pin started (continuous)")
             tickBrightnessPin()
         }
     }
@@ -273,42 +382,43 @@ final class BuiltInDisplayDisabler {
     private var pinTickCount = 0
 
     private func tickBrightnessPin() {
+        // Pin runs continuously while disabled, not just within a deadline.
+        // The lid-open flash happens because the OS resets the panel state
+        // (backlight on + gamma to identity) slightly before any callback we
+        // can hook. By ticking every ~16 ms (one frame at 60 Hz) all the
+        // time, we keep gamma=0 reapplied within a single frame of any OS
+        // intervention — flash window shrinks to a single frame at worst.
         guard isBuiltInDisabled else {
             brightnessPinScheduled = false
             brightnessPinDeadline = .distantPast
-            pinTickCount = 0
-            return
-        }
-        if Date() >= brightnessPinDeadline {
-            brightnessPinScheduled = false
-            brightnessPinDeadline = .distantPast
-            Log.info("BuiltInDisplayDisabler: brightness pin ended after \(pinTickCount) ticks")
+            Log.info("BuiltInDisplayDisabler: brightness pin stopped after \(pinTickCount) ticks (toggle off)")
             pinTickCount = 0
             return
         }
         if let displayID = Self.builtInDisplayID() {
             // Prefer linear brightness on Apple Silicon — skips the animated
             // gamma curve that loses the race against the OS's brightness
-            // restoration on lid-open.
+            // restoration on lid-open. Note that on Apple Silicon the OS
+            // clamps brightness at ~6.25%; gamma is what actually achieves
+            // a black panel here.
             let writeFn = setLinearBrightness ?? setBrightness
             let usedLinear = (setLinearBrightness != nil)
             if let writeFn {
                 let rc = writeFn(displayID, 0.0)
-                if rc != 0 {
+                if rc != 0, pinTickCount % 60 == 0 {
                     Log.error("BuiltInDisplayDisabler: setBrightness rc=\(rc) linear=\(usedLinear)")
                 }
             }
-            // Read back every ~10 ticks (~300ms). If write returned success
-            // but readback is non-zero, the API is being clobbered by the OS
-            // (or doesn't actually drive hardware backlight on this machine).
-            if pinTickCount % 10 == 0, let getBrightness {
+            blackoutGamma(displayID)
+            // Readback every ~60 ticks (~1s) — diagnostic only, low spam.
+            if pinTickCount % 60 == 0, let getBrightness {
                 var current: Float = -1
                 _ = getBrightness(displayID, &current)
                 Log.info("BuiltInDisplayDisabler: pin tick=\(pinTickCount) brightness readback=\(current) linear=\(usedLinear)")
             }
         }
         pinTickCount += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) { [weak self] in
             MainActor.assumeIsolated {
                 self?.tickBrightnessPin()
             }
