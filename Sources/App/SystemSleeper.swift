@@ -14,13 +14,6 @@ import Foundation
 @MainActor
 enum SystemSleeper {
     static func sleepNow() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-        process.arguments = ["sleepnow"]
-        do {
-            try process.run()
-        } catch {
-            Log.error("SystemSleeper: failed to invoke pmset: \(error)")
-        }
+        PMSet.run(["sleepnow"], label: "SystemSleeper")
     }
 }

@@ -12,13 +12,6 @@ import Foundation
 @MainActor
 enum DisplaySleeper {
     static func sleepNow() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-        process.arguments = ["displaysleepnow"]
-        do {
-            try process.run()
-        } catch {
-            Log.error("DisplaySleeper: failed to invoke pmset: \(error)")
-        }
+        PMSet.run(["displaysleepnow"], label: "DisplaySleeper")
     }
 }
