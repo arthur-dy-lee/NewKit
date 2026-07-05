@@ -15,8 +15,20 @@ import Foundation
 /// policy change that makes the command fail — leaves a trace in the log
 /// instead of vanishing.
 enum PMSet {
-    static func run(_ arguments: [String], label: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
+    /// Settle delay applied before the "do it now" sleep commands.
+    ///
+    /// The menu click (or keystroke) that triggers the action is itself HID
+    /// activity. If `pmset displaysleepnow` / `sleepnow` fires in the same
+    /// instant, the window server is still processing that trailing mouse-up
+    /// and treats it as "user is active", so it wakes the display right back
+    /// up — the screen blacks out, flashes on, and only a second attempt
+    /// sticks. Waiting ~0.5 s for the input to drain removes the race.
+    static let settleDelay: TimeInterval = 0.5
+
+    /// - Parameter delay: seconds to wait before invoking pmset. Pass
+    ///   `settleDelay` for click-triggered sleep actions; leave at 0 otherwise.
+    static func run(_ arguments: [String], label: String, delay: TimeInterval = 0) {
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
             process.arguments = arguments

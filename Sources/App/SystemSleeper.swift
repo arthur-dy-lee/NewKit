@@ -14,6 +14,8 @@ import Foundation
 @MainActor
 enum SystemSleeper {
     static func sleepNow() {
-        PMSet.run(["sleepnow"], label: "SystemSleeper")
+        // Delay so the triggering click's HID event drains first — otherwise
+        // it can cancel the pending sleep. See PMSet.settleDelay.
+        PMSet.run(["sleepnow"], label: "SystemSleeper", delay: PMSet.settleDelay)
     }
 }

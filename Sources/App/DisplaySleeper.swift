@@ -12,6 +12,8 @@ import Foundation
 @MainActor
 enum DisplaySleeper {
     static func sleepNow() {
-        PMSet.run(["displaysleepnow"], label: "DisplaySleeper")
+        // Delay so the triggering click's HID event drains first — otherwise
+        // it wakes the just-slept display. See PMSet.settleDelay.
+        PMSet.run(["displaysleepnow"], label: "DisplaySleeper", delay: PMSet.settleDelay)
     }
 }
