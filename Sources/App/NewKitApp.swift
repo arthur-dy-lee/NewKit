@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.purgeOldLogs()
         statusBar = StatusBarController()
+        MenuBarOrganizer.shared.start()
         registerGlobalShortcuts()
         ServicesProvider.register()
         URLSchemeHandler.register()
@@ -58,6 +59,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         SettingsWindowController.shared.show()
         return true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        MenuBarOrganizer.shared.stop()
     }
 
     private func registerGlobalShortcuts() {

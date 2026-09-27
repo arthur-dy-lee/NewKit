@@ -7,6 +7,7 @@
 /* Settings window */
 "settings.window.title"          = "NewKit 偏好设置";
 "settings.tab.general"           = "通用";
+"settings.tab.iconmanager"       = "菜单栏";
 "settings.tab.filetypes"         = "文件类型";
 "settings.tab.templates"         = "模板";
 "settings.tab.shortcuts"         = "快捷键";
@@ -71,11 +72,11 @@
 
 /* Permissions tab */
 "perm.acc.section"      = "辅助功能";
-"perm.acc.granted"      = "已授权 — Finder 右键功能已启用。";
-"perm.acc.missing"      = "未授权 — 右键触发功能不可用。";
+"perm.acc.granted"      = "已授权 — Finder 右键和菜单栏扫描已启用。";
+"perm.acc.missing"      = "未授权 — Finder 右键和菜单栏扫描不可用。";
 "perm.acc.request"      = "请求授权";
 "perm.acc.opensettings" = "打开系统设置";
-"perm.acc.footer"       = "按住 Control 键并在 Finder 中右键，即可弹出 NewKit 菜单。未授权时，菜单栏图标、快捷键、浮动面板仍可正常使用。";
+"perm.acc.footer"       = "辅助功能权限用于 Finder 中的 Control + 右键，以及菜单栏 App 的发现和排序。未授权时，常规 NewKit 菜单栏图标、快捷键和浮动面板仍可使用。";
 
 /* Shortcuts */
 "shortcuts.toggle.label"          = "唤起浮动新建面板";
@@ -94,6 +95,45 @@
 "settings.menubar.section"       = "菜单栏";
 "settings.menubar.label"         = "在菜单栏显示 NewKit 图标";
 "settings.menubar.footer"        = "隐藏后可双击应用程序中的 NewKit 重新打开此窗口。Finder 右键菜单、工具栏按钮、全局快捷键依然可用。";
+
+/* 菜单栏图标管理（macOS 27） */
+"settings.iconmanager.section"          = "App 图标";
+"settings.iconmanager.identity.section" = "当前运行的应用";
+"settings.iconmanager.identity.version" = "版本（构建号）";
+"settings.iconmanager.enable"           = "管理菜单栏 App 图标";
+"settings.iconmanager.footer"           = "在下方为每个 App 选择分组。新 App 默认放在「显示」。需要 macOS 27 和辅助功能权限。";
+"settings.iconmanager.control"          = "隐藏的图标";
+"settings.iconmanager.control.footer"   = "菜单栏箭头只切换「隐藏」组。「永久隐藏」组不会随之显示；要恢复，请在此处把 App 移到其他组。";
+"settings.iconmanager.expand"           = "显示隐藏的图标";
+"settings.iconmanager.collapse"         = "再次隐藏图标";
+"settings.iconmanager.refresh"          = "刷新 App 列表";
+"settings.iconmanager.retry"            = "重试";
+"settings.iconmanager.group.label"      = "图标分组";
+"settings.iconmanager.group.visible"    = "显示";
+"settings.iconmanager.group.hidden"     = "隐藏";
+"settings.iconmanager.group.alwaysHidden" = "永久隐藏";
+"settings.iconmanager.empty"            = "此组暂无 App。";
+"settings.iconmanager.noapps"           = "尚未找到菜单栏 App。请授权辅助功能，或刷新列表。";
+"settings.iconmanager.notrunning"       = "未运行";
+"settings.iconmanager.drag.hint"        = "拖动 App 图标可跨栏归类；每栏从左到右就是菜单栏顺序。拖到图标的左半侧或右半侧可调整位置。";
+"settings.iconmanager.drag.end"         = "放在本栏最右侧";
+"settings.iconmanager.order.moving"     = "正在调整菜单栏图标位置…";
+"settings.iconmanager.order.deferred"   = "顺序已保存；两个图标都显示时会同步到菜单栏。";
+"settings.iconmanager.order.failed"     = "macOS 没有移动该图标，请再次拖动重试。";
+"settings.iconmanager.addrunning"        = "添加运行中的 App…";
+"settings.iconmanager.addrunning.hint"   = "如果某个菜单栏 App 没有列出，可在这里添加它的运行进程。请选择实际拥有该图标的进程。";
+"settings.iconmanager.addrunning.search" = "搜索名称或 Bundle ID";
+"settings.iconmanager.addrunning.empty"  = "没有匹配的运行中 App。";
+"settings.iconmanager.addrunning.close"  = "关闭";
+"settings.iconmanager.state.off"        = "图标管理已关闭。";
+"settings.iconmanager.state.permission" = "需要辅助功能权限。";
+"settings.iconmanager.state.installation" = "当前运行的 NewKit 与系统登记的应用路径不一致，请重新打开要使用的那一份。";
+"debug.finder.unavailable" = "Finder 操作需要已签名的 NewKit 版本。";
+"settings.iconmanager.state.unavailable" = "当前 macOS 版本无法管理菜单栏图标。";
+"settings.iconmanager.state.applying"   = "正在应用图标显示设置…";
+"settings.iconmanager.state.ready"      = "图标分组已生效。";
+"settings.iconmanager.state.failed"     = "图标设置未能生效，已恢复显示所有图标。";
+"settings.iconmanager.limitations"      = "macOS 27 会把同一 App 的多个图标一起处理。受系统保护的图标不在列表中。隐藏图标期间，点击时钟可能无法打开通知中心，因为系统把隐藏规则视作评估模式。";
 
 /* Language */
 "settings.language.section" = "语言";
@@ -153,7 +193,7 @@
 "onboarding.feature.rightclick" = "Control + 右键 弹出 NewKit 菜单（需辅助功能权限）";
 "onboarding.feature.toolbar"   = "Finder 顶部工具栏按钮（需启用扩展）";
 "onboarding.acc.title"      = "第 1 步 — 辅助功能";
-"onboarding.acc.body"       = "Control + 右键 功能需要此权限。NewKit 仅用它检测 Finder 处于前台时的右键事件，不读取任何其他内容。";
+"onboarding.acc.body"       = "Control + 右键、菜单栏 App 的发现和排序需要此权限。NewKit 会读取菜单栏的辅助功能信息，并在你调整图标顺序时模拟拖动。";
 "onboarding.ext.title"      = "第 2 步 — Finder 扩展";
 "onboarding.ext.body"       = "为 Finder 工具栏添加 NewKit 按钮。打开 系统设置 → 登录项与扩展 → Finder，开启 NewKit Finder Extension。";
 "onboarding.ext.open"       = "打开扩展设置";

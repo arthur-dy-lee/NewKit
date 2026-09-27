@@ -13,6 +13,7 @@
 ## 功能一览
 
 - 📂 **5 个入口**，随你顺手用：菜单栏图标 / 全局快捷键 / Finder 工具栏图标 / Control + 右键 / 系统服务菜单
+- 🧭 **菜单栏图标管理**：把其他应用图标分到「显示」「隐藏」「永久隐藏」；需要时展开隐藏组，也可在设置中隐藏 NewKit 自身的菜单栏图标。图标分组功能需要 macOS 27 和辅助功能权限。
 - 🗂️ **10+ 内置类型**：txt · md · py · js · ts · json · html · css · sh · xlsx · docx · pptx · folder
 - 🖥️ **「打开终端」**：所有菜单入口里都可一键在当前 Finder 目录打开 Terminal（可在偏好设置中关闭）
 - ⚙️ **完全可配置**：勾选显示、**鼠标拖拽排序**、自定义类型（扩展名 + 图标 + 模板）
@@ -43,7 +44,7 @@
 
 ## 安装
 
-下载最新 DMG：[Releases 页](https://github.com/arthur-dy-lee/NewKit/releases)（占位链接，请替换为实际仓库地址）
+从 [Releases 页](https://github.com/arthur-dy-lee/NewKit/releases) 下载 DMG 安装包，或下载已签名、公证的 App ZIP。
 
 1. 双击 `NewKit-x.y.z.dmg`
 2. 把 `NewKit` 拖到 `Applications` 文件夹
@@ -122,7 +123,7 @@ open build/Build/Products/Debug/NewKit.app
 仓库带一键脚本 [`Tools/build_dmg.sh`](./Tools/build_dmg.sh)：
 
 ```bash
-# 本地玩 / ad-hoc 签名（无需 Apple Developer 账号）
+# 本地打包（按 project.yml 配置签名，未公证）
 Tools/build_dmg.sh
 
 # 发行：Release 签名 + Apple 公证 + staple

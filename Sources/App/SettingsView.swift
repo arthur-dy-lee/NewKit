@@ -8,6 +8,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView(config: config)
                 .tabItem { Label(L10n.tab("general"), systemImage: "gear") }
+            MenuBarSettingsView()
+                .tabItem { Label(L10n.tab("iconmanager"), systemImage: "menubar.rectangle") }
             FileTypesSettingsView(config: config)
                 .tabItem { Label(L10n.tab("filetypes"), systemImage: "doc.on.doc") }
             TemplatesSettingsView(config: config)
@@ -23,7 +25,7 @@ struct SettingsView: View {
             AboutSettingsView()
                 .tabItem { Label(L10n.tab("about"), systemImage: "info.circle") }
         }
-        .frame(minWidth: 520, idealWidth: 600, minHeight: 400, idealHeight: 460)
+        .frame(minWidth: 680, idealWidth: 740, minHeight: 400, idealHeight: 500)
     }
 }
 

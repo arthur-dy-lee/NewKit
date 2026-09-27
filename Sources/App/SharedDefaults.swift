@@ -4,8 +4,12 @@ import Foundation
 enum SharedDefaults {
     static let appGroupID = "XVZHPD648U.com.codearthur.matrixapps.newkit"
 
-    /// Falls back to `.standard` if the App Group isn't available (e.g. unsigned local builds).
+    /// Ad-hoc Debug builds have no Team ID, so they cannot claim the release App Group.
     static var store: UserDefaults {
+#if DEBUG
+        .standard
+#else
         UserDefaults(suiteName: appGroupID) ?? .standard
+#endif
     }
 }

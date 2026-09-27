@@ -20,7 +20,7 @@ final class SettingsWindowController {
         window.title = L10n.string("settings.window.title")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 480, height: 360)
+        window.minSize = NSSize(width: 680, height: 360)
         window.center()
         window.setFrameAutosaveName("NewKitSettings")
         self.window = window

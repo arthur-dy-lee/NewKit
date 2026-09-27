@@ -13,6 +13,7 @@ English · [中文](./README.md)
 ## Features
 
 - 📂 **5 entry points**: menu bar icon · global hotkey · Finder toolbar button · Control + right-click · Services menu
+- 🧭 **Menu bar icon management**: place other apps' icons in Visible, Hidden, or Always Hidden; reveal the Hidden group when needed. You can also hide NewKit's own menu bar icon in Preferences. Organizing other apps' icons requires macOS 27 and Accessibility permission.
 - 🗂️ **10+ built-in types**: txt · md · py · js · ts · json · html · css · sh · xlsx · docx · pptx · folder
 - 🖥️ **"Open Terminal"**: every menu offers a one-click "open Terminal at current Finder folder" (toggleable in Preferences)
 - ⚙️ **Fully configurable**: enable/disable types, **drag-to-reorder**, custom types (extension + icon + template)
@@ -43,7 +44,7 @@ English · [中文](./README.md)
 
 ## Install
 
-Download the latest DMG from the [Releases page](https://github.com/arthur-dy-lee/NewKit/releases) (replace with the actual repo URL).
+Download the DMG installer or the signed and notarized app ZIP from the [Releases page](https://github.com/arthur-dy-lee/NewKit/releases).
 
 1. Double-click `NewKit-x.y.z.dmg`
 2. Drag `NewKit` into the `Applications` folder
@@ -122,7 +123,7 @@ open build/Build/Products/Debug/NewKit.app
 The repo ships a one-shot script: [`Tools/build_dmg.sh`](./Tools/build_dmg.sh):
 
 ```bash
-# Local / ad-hoc signing (no Apple Developer account needed)
+# Local package (signed as configured in project.yml, not notarized)
 Tools/build_dmg.sh
 
 # Distribution: Release signing + Apple notarization + staple

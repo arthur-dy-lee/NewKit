@@ -22,9 +22,12 @@ xcodegen generate
 ## 三、命令行构建（Debug）
 
 ```bash
-# 主 App
-xcodebuild -project NewKit.xcodeproj -scheme NewKit \
-  -configuration Debug -derivedDataPath build build
+# 主 App：使用固定 Developer ID 签名构建并验证整包签名
+Tools/build_debug_signed.sh
+
+# 联调辅助功能时：安装到唯一的固定路径，清理同 Bundle ID 的旧注册并核对 LaunchServices
+# （先退出正在运行的 NewKit Debug；旧安装包会备份到 dist/backup/debug/）
+Tools/build_debug_signed.sh --install
 
 # CLI 工具
 xcodebuild -project NewKit.xcodeproj -scheme newkit \
@@ -32,20 +35,32 @@ xcodebuild -project NewKit.xcodeproj -scheme newkit \
 ```
 
 产物位置：
-- 主 App：`build/Build/Products/Debug/NewKit.app`
+- 主 App：`build/debug-signed/Build/Products/Debug/NewKit.app`
+- 可授权的安装路径：`/Applications/NewKit Debug.app`（运行 `--install` 后）
 - CLI：`build/Build/Products/Debug/newkit`
 - Finder Extension：自动嵌入主 App 的 `Contents/PlugIns/NewKitFinderExtension.appex`
+
+Debug App 显示为 **NewKit Debug**，Bundle ID 为 `com.codearthur.matrixapps.newkit.debug`，
+与 `/Applications/NewKit.app` 的正式版分开注册。它使用独立的标准 UserDefaults，
+需要单独授予一次辅助功能权限。Debug 使用固定的 Developer ID 签名（Team ID `XVZHPD648U`）；
+请始终从 `/Applications/NewKit Debug.app` 启动授权过的测试包，避免多个路径对应不同的系统授权记录。
+脚本会核对主 App 与 Finder Extension 的签名和 Bundle ID，并打印版本、可执行文件 SHA-256、
+修改时间；`--install` 还会核对 LaunchServices 实际解析路径。旧的 `Tools/build_debug_adhoc.sh` 仅是兼容入口，
+也会构建上述 Developer ID 签名包。Debug Finder Extension 不具备正式版 App Group 权限，
+因此菜单仅显示不可点击的说明项。
 
 ## 四、运行
 
 ```bash
-open build/Build/Products/Debug/NewKit.app
+open '/Applications/NewKit Debug.app'
 
 # 把 CLI 软链到 PATH（可选）
 sudo ln -sf "$(pwd)/build/Build/Products/Debug/newkit" /usr/local/bin/newkit
 ```
 
 启动后菜单栏会出现 `⊞` 图标。首次启动会显示引导页指引授权。
+系统设置里的旧 NewKit 授权项可能继续保留；以 App 名称、Bundle ID、Team ID 和脚本打印的
+安装路径核对当前测试包，不要仅凭列表里的旧名称判断。调试包的辅助功能授权与正式版独立。
 
 ## 五、Office 空白模板（一次性生成）
 
@@ -61,15 +76,17 @@ python3 Tools/build_office_templates.py
 open NewKit.xcodeproj
 ```
 
-⌘R 直接运行调试。
+Xcode 中可编译运行。测试菜单栏 App 图标管理时，先运行
+`Tools/build_debug_signed.sh --install`，再从 `/Applications/NewKit Debug.app` 启动；
+该功能要求运行路径与 LaunchServices 登记的路径一致。
 
 ## 七、Targets 总览
 
 | Target | Bundle ID | 类型 |
 |---|---|---|
-| `NewKit` | `app.newkit.NewKit` | macOS App（非沙盒） |
-| `NewKitFinderExtension` | `app.newkit.NewKit.FinderExtension` | Finder Sync Extension（沙盒） |
-| `newkit` | `app.newkit.cli` | 命令行工具 |
+| `NewKit` | `com.codearthur.matrixapps.newkit`（Debug 加 `.debug`） | macOS App（非沙盒） |
+| `NewKitFinderExtension` | `com.codearthur.matrixapps.newkit.FinderExtension`（Debug 为 `.debug.FinderExtension`） | Finder Sync Extension（沙盒） |
+| `newkit` | `com.codearthur.matrixapps.newkit.cli` | 命令行工具 |
 
 ---
 
@@ -78,7 +95,7 @@ open NewKit.xcodeproj
 完整流程已封装到 `Tools/build_dmg.sh`：
 
 ```bash
-Tools/build_dmg.sh             # ad-hoc 签名 DMG（自用）
+Tools/build_dmg.sh             # 按 project.yml 配置签名，生成未公证的 DMG
 Tools/build_dmg.sh --notarize  # Developer ID 签名 + 公证 + staple
 Tools/build_dmg.sh --keep-dirty   # 跳过 clean，增量编译
 ```

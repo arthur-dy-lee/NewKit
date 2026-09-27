@@ -16,8 +16,9 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.1.3"
-    CURRENT_PROJECT_VERSION: "113"
+    MARKETING_VERSION: "1.4.0"
+    CURRENT_PROJECT_VERSION: "140"
+    NEWKIT_DISPLAY_NAME: NewKit
     ENABLE_HARDENED_RUNTIME: YES
     SWIFT_STRICT_CONCURRENCY: minimal
     CODE_SIGN_STYLE: Manual
@@ -40,6 +41,7 @@ targets:
         excludes:
           - "Info.plist"
           - "NewKit.entitlements"
+          - "NewKitDebug.entitlements"
     dependencies:
       - package: KeyboardShortcuts
       - target: NewKitFinderExtension
@@ -52,8 +54,19 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: Sources/App/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/App/NewKit.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/App/NewKit-Bridging-Header.h
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+      configs:
+        Debug:
+          # Keep the local test app separate from /Applications/NewKit.app.
+          # Inherit the stable Developer ID identity and Team ID from base.
+          # Ad-hoc signatures change their TCC identity after a rebuild and
+          # can make Accessibility request permission repeatedly.
+          PRODUCT_BUNDLE_IDENTIFIER: com.codearthur.matrixapps.newkit.debug
+          NEWKIT_DISPLAY_NAME: NewKit Debug
+          CODE_SIGN_ENTITLEMENTS: Sources/App/NewKitDebug.entitlements
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
   newkit:
     type: tool
@@ -75,6 +88,7 @@ targets:
         excludes:
           - "Info.plist"
           - "FinderExtension.entitlements"
+          - "FinderExtensionDebug.entitlements"
       - path: Sources/App/Resources/en.lproj
         buildPhase: resources
       - path: Sources/App/Resources/zh-Hans.lproj
@@ -88,3 +102,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Sources/FinderExtension/FinderExtension.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.codearthur.matrixapps.newkit.debug.FinderExtension
+          CODE_SIGN_ENTITLEMENTS: Sources/FinderExtension/FinderExtensionDebug.entitlements
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO

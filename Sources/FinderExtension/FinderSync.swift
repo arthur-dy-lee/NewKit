@@ -7,7 +7,12 @@ final class NewKitFinderSync: FIFinderSync {
 
     private static let appGroupID = "XVZHPD648U.com.codearthur.matrixapps.newkit"
     private static let logger = Logger(subsystem: "app.newkit", category: "ext")
+#if DEBUG
+    // The ad-hoc extension has no Team ID or App Group access; use fallback entries.
+    private let sharedDefaults: UserDefaults? = nil
+#else
     private let sharedDefaults = UserDefaults(suiteName: appGroupID)
+#endif
     /// Maps `NSMenuItem.tag` → type ID. NSMenuItem's `representedObject` does NOT
     /// survive the XPC round-trip when Finder displays our menu, but `tag` does.
     private var tagToTypeID: [Int: String] = [:]
@@ -34,6 +39,17 @@ final class NewKitFinderSync: FIFinderSync {
     // MARK: - Menus
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
+#if DEBUG
+        // This ad-hoc extension cannot share the Team ID App Group with its
+        // host. Do not offer actions that would silently launch the release app.
+        let menu = NSMenu()
+        let title = Bundle.main.localizedString(forKey: "debug.finder.unavailable",
+                                                value: "Finder actions need a signed build.", table: nil)
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        menu.addItem(item)
+        return menu
+#else
         let entries = resolveTypes()
         let summary = entries.map { $0.kind == "separator" ? "[sep]" : "[\($0.id)]" }.joined(separator: ",")
         Self.logger.info("menu(for:) kind=\(menuKind.rawValue, privacy: .public) entries=\(summary, privacy: .public)")
@@ -65,9 +81,13 @@ final class NewKitFinderSync: FIFinderSync {
             menu.addItem(item)
         }
         return menu
+#endif
     }
 
     @objc private func handle(_ sender: NSMenuItem) {
+#if DEBUG
+        return
+#else
         Self.logger.info("handle FIRED title=\(sender.title, privacy: .public) tag=\(sender.tag, privacy: .public)")
         let target = resolveTargetURL()
         let payloadID: String
@@ -87,6 +107,7 @@ final class NewKitFinderSync: FIFinderSync {
         FIFinderSyncController.default().open(appURL) { ok in
             Self.logger.info("open(app) ok=\(ok, privacy: .public)")
         }
+#endif
     }
 
     private func dropPendingCommand(typeID: String, folderPath: String) -> URL? {

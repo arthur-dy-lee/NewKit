@@ -127,6 +127,8 @@ final class StatusBarController {
 
         menu.addItem(.separator())
 
+        // Resolving Finder's current folder may wait for an Automation prompt.
+        // Keep status-item creation and the Settings menu available meanwhile.
         let pathItem = NSMenuItem(title: pathLabel(), action: nil, keyEquivalent: "")
         pathItem.isEnabled = false
         pathItem.tag = 999
@@ -152,9 +154,8 @@ final class StatusBarController {
     }
 
     private func pathLabel() -> String {
-        let dir = FinderHelper.currentTargetPath()
         let prefix = L10n.string("menu.targetpath.prefix")
-        return "\(prefix) \(MenuRefresher.abbreviate(dir.path))"
+        return "\(prefix) …"
     }
 
     @objc private func handleCreate(_ sender: NSMenuItem) {
@@ -200,12 +201,21 @@ final class StatusBarController {
 }
 
 /// Refreshes the dynamic "current path" item every time the menu opens.
+private final class MainThreadMenuItem: @unchecked Sendable {
+    let item: NSMenuItem
+
+    init(_ item: NSMenuItem) { self.item = item }
+}
+
 final class MenuRefresher: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         guard let item = menu.item(withTag: 999) else { return }
-        let dir = FinderHelper.currentTargetPath()
-        let prefix = L10n.string("menu.targetpath.prefix")
-        item.title = "\(prefix) \(MenuRefresher.abbreviate(dir.path))"
+        let target = MainThreadMenuItem(item)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dir = FinderHelper.currentTargetPath()
+            let label = "\(L10n.string("menu.targetpath.prefix")) \(Self.abbreviate(dir.path))"
+            DispatchQueue.main.async { target.item.title = label }
+        }
     }
 
     static func abbreviate(_ path: String) -> String {

@@ -7,6 +7,7 @@
 /* Settings window */
 "settings.window.title"          = "NewKit Preferences";
 "settings.tab.general"           = "General";
+"settings.tab.iconmanager"       = "Menu Bar";
 "settings.tab.filetypes"         = "File Types";
 "settings.tab.templates"         = "Templates";
 "settings.tab.shortcuts"         = "Shortcuts";
@@ -66,11 +67,11 @@
 
 /* Permissions tab */
 "perm.acc.section"      = "Accessibility";
-"perm.acc.granted"      = "Granted — right-click in Finder is enabled.";
-"perm.acc.missing"      = "Not granted — right-click trigger is disabled.";
+"perm.acc.granted"      = "Granted — Finder right-click and menu bar scanning are enabled.";
+"perm.acc.missing"      = "Not granted — Finder right-click and menu bar scanning are unavailable.";
 "perm.acc.request"      = "Request Permission";
 "perm.acc.opensettings" = "Open System Settings";
-"perm.acc.footer"       = "Hold Control while right-clicking inside Finder to open the NewKit menu. Without permission, only the menu bar icon, shortcut, and floating panel work.";
+"perm.acc.footer"       = "Accessibility enables Control + Right-click in Finder and menu bar app discovery and ordering. Without it, the regular NewKit menu bar icon, shortcut, and floating panel still work.";
 
 /* Shortcuts */
 "shortcuts.toggle.label"          = "Toggle floating new file panel";
@@ -89,6 +90,45 @@
 "settings.menubar.section"       = "Menu Bar";
 "settings.menubar.label"         = "Show NewKit icon in menu bar";
 "settings.menubar.footer"        = "When hidden, you can re-open this window by double-clicking NewKit in Applications. The Finder right-click menu, toolbar button, and global shortcut continue to work.";
+
+/* Menu bar organizer (macOS 27) */
+"settings.iconmanager.section"          = "App Icons";
+"settings.iconmanager.identity.section" = "Running App";
+"settings.iconmanager.identity.version" = "Version (build)";
+"settings.iconmanager.enable"           = "Organize menu bar app icons";
+"settings.iconmanager.footer"           = "Choose a group for each app below. New apps start in Visible. Requires macOS 27 and Accessibility permission.";
+"settings.iconmanager.control"          = "Hidden Icons";
+"settings.iconmanager.control.footer"   = "The menu bar chevron switches only the Hidden group. Always Hidden stays out of the menu bar until you move an app to another group here.";
+"settings.iconmanager.expand"           = "Show Hidden Icons";
+"settings.iconmanager.collapse"         = "Hide Icons Again";
+"settings.iconmanager.refresh"          = "Refresh App List";
+"settings.iconmanager.retry"            = "Try Again";
+"settings.iconmanager.group.label"      = "Icon group";
+"settings.iconmanager.group.visible"    = "Visible";
+"settings.iconmanager.group.hidden"     = "Hidden";
+"settings.iconmanager.group.alwaysHidden" = "Always Hidden";
+"settings.iconmanager.empty"            = "No apps in this group.";
+"settings.iconmanager.noapps"           = "No menu bar apps found yet. Grant Accessibility permission or refresh the list.";
+"settings.iconmanager.notrunning"       = "Not running";
+"settings.iconmanager.drag.hint"        = "Drag app icons between lanes. Left to right within each lane matches the menu bar order. Drop on the left or right half of an icon to position it.";
+"settings.iconmanager.drag.end"         = "Place at the right end";
+"settings.iconmanager.order.moving"     = "Moving the icon in the menu bar…";
+"settings.iconmanager.order.deferred"   = "Order saved. The menu bar will be updated when both icons are visible.";
+"settings.iconmanager.order.failed"     = "macOS did not move that icon. Drag it again to retry.";
+"settings.iconmanager.addrunning"        = "Add running app…";
+"settings.iconmanager.addrunning.hint"   = "If a menu bar app is missing, add its running helper here. Choose the process that owns the icon.";
+"settings.iconmanager.addrunning.search" = "Search name or bundle ID";
+"settings.iconmanager.addrunning.empty"  = "No matching running apps.";
+"settings.iconmanager.addrunning.close"  = "Close";
+"settings.iconmanager.state.off"        = "Icon organizer is off.";
+"settings.iconmanager.state.permission" = "Accessibility permission is needed.";
+"settings.iconmanager.state.installation" = "This NewKit copy does not match the app registered with macOS. Reopen the intended copy.";
+"debug.finder.unavailable" = "Finder actions require a signed NewKit build.";
+"settings.iconmanager.state.unavailable" = "Menu bar management is unavailable on this macOS version.";
+"settings.iconmanager.state.applying"   = "Applying icon visibility…";
+"settings.iconmanager.state.ready"      = "Icon groups are active.";
+"settings.iconmanager.state.failed"     = "Could not apply icon visibility. All icons are shown.";
+"settings.iconmanager.limitations"      = "macOS 27 manages all icons from one app together. Protected system icons are not listed. While icons are hidden, clicking the clock may not open Notification Center because macOS treats the visibility rule as assessment mode.";
 
 /* Language */
 "settings.language.section" = "Language";
@@ -148,7 +188,7 @@
 "onboarding.feature.rightclick" = "Control + Right-click in Finder (needs Accessibility)";
 "onboarding.feature.toolbar"   = "Finder toolbar button (needs extension enabled)";
 "onboarding.acc.title"      = "Step 1 — Accessibility";
-"onboarding.acc.body"       = "Required for the Control + Right-click feature. NewKit uses it only to detect right-click events when Finder is the front app.";
+"onboarding.acc.body"       = "Required for Control + Right-click and menu bar app discovery and ordering. NewKit reads menu bar accessibility information and simulates drags when you reorder icons.";
 "onboarding.ext.title"      = "Step 2 — Finder Extension";
 "onboarding.ext.body"       = "Adds a NewKit button to Finder's toolbar. Open System Settings → Login Items & Extensions → Finder, and turn on NewKit Finder Extension.";
 "onboarding.ext.open"       = "Open Extensions Settings";
