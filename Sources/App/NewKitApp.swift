@@ -4,6 +4,8 @@ import KeyboardShortcuts
 @main
 final class NewKitAppMain {
     static func main() {
+        if OldVersionCleanupCommand.handleIfRequested() { return }
+        if ConfigurationBackupCommand.handleIfRequested() { return }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -19,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.purgeOldLogs()
+        MouseEnhancementCoordinator.shared.start()
         statusBar = StatusBarController()
         MenuBarOrganizer.shared.start()
         registerGlobalShortcuts()
@@ -28,18 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AccessibilityHelper.isTrusted {
             RightClickMonitor.shared.start()
         }
-        ScrollInverter.shared.apply()
-        SmoothScroller.shared.apply()
-        PointerLinearizer.shared.apply()
         SleepGuard.shared.apply()
         AppAppearance.apply(Configuration.shared.appearance)
         configObserver = NotificationCenter.default.addObserver(
             forName: Configuration.didChange, object: nil, queue: .main
         ) { _ in
             MainActor.assumeIsolated {
-                ScrollInverter.shared.apply()
-                SmoothScroller.shared.apply()
-                PointerLinearizer.shared.apply()
+                MouseEnhancementCoordinator.shared.configurationDidChange()
                 SleepGuard.shared.apply()
                 AppAppearance.apply(Configuration.shared.appearance)
             }
@@ -52,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && UserDefaults.standard.bool(forKey: "didShowOnboarding_v1") {
             SettingsWindowController.shared.show()
         }
+        ConfigurationBackupCommand.presentRestoreFailureIfNeeded()
     }
 
     /// Called when the user re-opens the app (e.g. double-clicks it in Finder while it's running).
@@ -62,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        MouseEnhancementCoordinator.shared.stop()
         MenuBarOrganizer.shared.stop()
     }
 

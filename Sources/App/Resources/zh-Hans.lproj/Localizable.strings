@@ -7,6 +7,33 @@
 /* Settings window */
 "settings.window.title"          = "NewKit 偏好设置";
 "settings.tab.general"           = "通用";
+
+"cleanup.section" = "清理旧版本";
+"cleanup.run" = "一键清理旧版本";
+"cleanup.addFolder" = "添加扫描文件夹…";
+"cleanup.clearFolders" = "清除附加位置";
+"cleanup.extraFolders" = "已添加 %d 个扫描文件夹";
+"cleanup.report" = "查看清理报告";
+"cleanup.footer" = "扫描系统登记的副本、应用程序、下载及你添加的文件夹。先备份配置，再将验证过的 NewKit 旧版应用和安装包移到废纸篓，并清除过期登记。保留当前版本、运行中的副本、配置和备份。无法验证的文件会保留并列入报告。登录项和系统权限请在系统设置中管理。";
+"cleanup.result" = "已将 %d 项移到废纸篓，清理 %d 处登记；%d 项需查看报告。";
+"cleanup.nothing" = "扫描范围内未发现旧版本或过期登记，配置已备份。";
+
+"backup.section" = "配置备份";
+"backup.export" = "导出配置…";
+"backup.restore" = "恢复配置…";
+"backup.reveal" = "查看自动备份";
+"backup.footer" = "备份全部 NewKit 偏好设置，包括菜单栏图标顺序与分组、快捷键、文件类型、模板和系统选项。恢复前会自动备份当前配置，然后重启 NewKit。macOS 系统权限仍由系统管理。";
+"backup.exported" = "已导出并验证：%@";
+"backup.failed.title" = "配置未能恢复";
+"backup.confirm.title" = "恢复这份配置？";
+"backup.confirm.message" = "备份时间：%@\n\n当前偏好设置将被替换。NewKit 会先自动备份当前配置，再恢复这份备份并重启。";
+"backup.confirm.restore" = "恢复并重启";
+"backup.confirm.cancel" = "取消";
+"backup.error.invalid" = "这不是有效且完整的 NewKit 配置备份。";
+"backup.error.incompatible" = "备份格式暂不支持，或备份属于另一个 NewKit 应用。";
+"backup.error.checksum" = "备份完整性校验失败，内容可能已损坏。";
+"backup.error.unavailable" = "无法读取 NewKit 配置存储，未生成完整备份。";
+"backup.error.writeFailed" = "无法完成配置恢复，已尝试还原原有设置，所有备份文件均已保留。";
 "settings.tab.iconmanager"       = "菜单栏";
 "settings.tab.filetypes"         = "文件类型";
 "settings.tab.templates"         = "模板";
@@ -30,6 +57,13 @@
 "settings.tab.system"            = "系统";
 
 /* System tab — reverse scrolling */
+"settings.mouseowner.section"       = "鼠标增强自动切换";
+"settings.mouseowner.label"         = "当前由谁管理";
+"settings.mouseowner.state.newKit"  = "NK";
+"settings.mouseowner.state.smooze"  = "Smooze（NK 已暂停）";
+"settings.mouseowner.state.resuming" = "正在恢复 NK 设置…";
+"settings.mouseowner.footer"        = "Smooze 启动时，NK 自动关闭反向滚动、丝滑滚动和指针线性化；Smooze 退出后，NK 自动恢复原来的开关和参数。";
+
 "settings.scroll.section"          = "反向滚动";
 "settings.scroll.mouse.label"      = "反向鼠标滚轮";
 "settings.scroll.trackpad.v.label" = "反向触摸板垂直滚动";
@@ -101,7 +135,7 @@
 "settings.iconmanager.identity.section" = "当前运行的应用";
 "settings.iconmanager.identity.version" = "版本（构建号）";
 "settings.iconmanager.enable"           = "管理菜单栏 App 图标";
-"settings.iconmanager.footer"           = "在下方为每个 App 选择分组。新 App 默认放在「显示」。需要 macOS 27 和辅助功能权限。";
+"settings.iconmanager.footer"           = "新 App 的图标默认显示在右上角，位置由 macOS 决定。自定义顺序需要读取和更新系统的菜单栏布局文件。";
 "settings.iconmanager.control"          = "隐藏的图标";
 "settings.iconmanager.control.footer"   = "菜单栏箭头只切换「隐藏」组。「永久隐藏」组不会随之显示；要恢复，请在此处把 App 移到其他组。";
 "settings.iconmanager.expand"           = "显示隐藏的图标";
@@ -118,8 +152,11 @@
 "settings.iconmanager.drag.hint"        = "拖动 App 图标可跨栏归类；每栏从左到右就是菜单栏顺序。拖到图标的左半侧或右半侧可调整位置。";
 "settings.iconmanager.drag.end"         = "放在本栏最右侧";
 "settings.iconmanager.order.moving"     = "正在调整菜单栏图标位置…";
-"settings.iconmanager.order.deferred"   = "顺序已保存；两个图标都显示时会同步到菜单栏。";
-"settings.iconmanager.order.failed"     = "macOS 没有移动该图标，请再次拖动重试。";
+"settings.iconmanager.order.deferred"   = "顺序已保存。图标可见时会重新检查菜单栏。";
+"settings.iconmanager.order.failed"     = "自定义顺序已保存。macOS 暂未应用到菜单栏。";
+"settings.iconmanager.layout.access"    = "授权菜单栏布局文件…";
+"settings.iconmanager.layout.choose"    = "选择 com.apple.MenuBar.plist，让 NewKit 同步你保存的图标顺序。";
+"settings.iconmanager.layout.grant"     = "授权";
 "settings.iconmanager.addrunning"        = "添加运行中的 App…";
 "settings.iconmanager.addrunning.hint"   = "如果某个菜单栏 App 没有列出，可在这里添加它的运行进程。请选择实际拥有该图标的进程。";
 "settings.iconmanager.addrunning.search" = "搜索名称或 Bundle ID";
@@ -193,7 +230,7 @@
 "onboarding.feature.rightclick" = "Control + 右键 弹出 NewKit 菜单（需辅助功能权限）";
 "onboarding.feature.toolbar"   = "Finder 顶部工具栏按钮（需启用扩展）";
 "onboarding.acc.title"      = "第 1 步 — 辅助功能";
-"onboarding.acc.body"       = "Control + 右键、菜单栏 App 的发现和排序需要此权限。NewKit 会读取菜单栏的辅助功能信息，并在你调整图标顺序时模拟拖动。";
+"onboarding.acc.body"       = "Control + 右键和读取菜单栏图标位置需要辅助功能权限。";
 "onboarding.ext.title"      = "第 2 步 — Finder 扩展";
 "onboarding.ext.body"       = "为 Finder 工具栏添加 NewKit 按钮。打开 系统设置 → 登录项与扩展 → Finder，开启 NewKit Finder Extension。";
 "onboarding.ext.open"       = "打开扩展设置";

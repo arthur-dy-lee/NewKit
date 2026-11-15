@@ -34,17 +34,17 @@ final class ScrollInverter: @unchecked Sendable {
     /// Pulls the current toggle state from `Configuration` and starts/stops the
     /// tap to match. Safe to call repeatedly.
     @MainActor
-    func apply() {
-        let mv = Configuration.shared.invertMouseScroll
-        let tv = Configuration.shared.invertTrackpadVerticalScroll
-        let th = Configuration.shared.invertTrackpadHorizontalScroll
+    func apply(suspended: Bool) {
+        let mv = !suspended && Configuration.shared.invertMouseScroll
+        let tv = !suspended && Configuration.shared.invertTrackpadVerticalScroll
+        let th = !suspended && Configuration.shared.invertTrackpadHorizontalScroll
         lock.lock()
         _invertMouseV = mv
         _invertTrackpadV = tv
         _invertTrackpadH = th
         lock.unlock()
 
-        Log.info("ScrollInverter.apply mouseV=\(mv) padV=\(tv) padH=\(th) trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
+        Log.info("ScrollInverter.apply suspended=\(suspended) mouseV=\(mv) padV=\(tv) padH=\(th) trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
 
         if mv || tv || th {
             startIfNeeded()
@@ -95,6 +95,7 @@ final class ScrollInverter: @unchecked Sendable {
         runLoopSource = nil
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
         }
         tap = nil
     }

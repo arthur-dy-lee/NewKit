@@ -51,12 +51,23 @@ xcodebuild \
     -project NewKit.xcodeproj \
     -scheme NewKit \
     -configuration Release \
+    -destination 'generic/platform=macOS' \
     -derivedDataPath "$DERIVED" \
     "${BUILD_ACTION[@]}" \
     | tail -20
 [[ -d "$APP" ]] || { echo "build did not produce $APP" >&2; exit 1; }
 
+echo "==> Verifying architectures"
+for binary in "$APP/Contents/MacOS/NewKit" \
+    "$APP/Contents/PlugIns/NewKitFinderExtension.appex/Contents/MacOS/NewKitFinderExtension"; do
+    for arch in arm64 x86_64; do
+        lipo -verify_arch "$arch" "$binary"
+    done
+done
+
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
+BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")
+BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Contents/Info.plist")
 DMG="$ROOT/dist/NewKit-${VERSION}.dmg"
 echo "==> Version: $VERSION"
 
@@ -95,6 +106,12 @@ create-dmg \
 
 # Also notarize + staple the DMG itself, so users don't see Gatekeeper warnings
 # at mount time (the .app inside is already notarized separately above).
+# Bind the installer signature to its version so the app can verify an old
+# installer without mounting or launching its contents during cleanup.
+DMG_IDENTITY=$(codesign -dv "$APP" 2>&1 | sed -n 's/^Authority=//p' | sed -n '1p')
+[[ -n "$DMG_IDENTITY" ]] || { echo "Missing Developer ID signing identity" >&2; exit 1; }
+codesign --force --sign "$DMG_IDENTITY" --timestamp \
+    --identifier "$BUNDLE_ID.installer.v$VERSION.b$BUILD_NUMBER" "$DMG"
 if [[ $NOTARIZE -eq 1 ]]; then
     PROFILE="${NOTARY_PROFILE:-notary-newkit}"
     echo "==> Notarizing DMG (profile: $PROFILE)"

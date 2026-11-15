@@ -15,20 +15,49 @@ import Foundation
 /// policy change that makes the command fail — leaves a trace in the log
 /// instead of vanishing.
 enum PMSet {
-    /// Settle delay applied before the "do it now" sleep commands.
-    ///
-    /// The menu click (or keystroke) that triggers the action is itself HID
-    /// activity. If `pmset displaysleepnow` / `sleepnow` fires in the same
-    /// instant, the window server is still processing that trailing mouse-up
-    /// and treats it as "user is active", so it wakes the display right back
-    /// up — the screen blacks out, flashes on, and only a second attempt
-    /// sticks. Waiting ~0.5 s for the input to drain removes the race.
-    static let settleDelay: TimeInterval = 0.5
+    @MainActor private static var pendingSleep: Task<Void, Never>?
 
-    /// - Parameter delay: seconds to wait before invoking pmset. Pass
-    ///   `settleDelay` for click-triggered sleep actions; leave at 0 otherwise.
-    static func run(_ arguments: [String], label: String, delay: TimeInterval = 0) {
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
+    /// Both sleep actions share one pending request. Repeated clicks replace
+    /// it, so an older timer cannot put the screen back to sleep after a wake.
+    @MainActor
+    static func runWhenInputSettles(_ arguments: [String], label: String) {
+        if pendingSleep != nil {
+            Log.info("\(label): replacing pending sleep request")
+            pendingSleep?.cancel()
+        }
+        let requestedAt = ProcessInfo.processInfo.systemUptime
+        Log.info("\(label): waiting for \(SleepInputSettler.quietInterval)s of idle input "
+            + "(deadline \(SleepInputSettler.maximumWait)s)")
+        pendingSleep = Task {
+            var settler = SleepInputSettler(requestedAt: requestedAt)
+            while !Task.isCancelled {
+                let now = ProcessInfo.processInfo.systemUptime
+                let input = SleepInputSnapshot.current()
+                switch settler.decision(at: now, input: input) {
+                case .ready:
+                    pendingSleep = nil
+                    Log.info("\(label): input settled after \(now - requestedAt)s "
+                        + "idle=\(input.idleTime)s; invoking pmset \(arguments.joined(separator: " "))")
+                    run(arguments, label: label)
+                    return
+                case .timedOut:
+                    pendingSleep = nil
+                    Log.info("\(label): cancelled sleep request because input stayed active "
+                        + "idle=\(input.idleTime)s held=\(input.hasHeldInput)")
+                    return
+                case .wait:
+                    do {
+                        try await Task.sleep(nanoseconds: 100_000_000)
+                    } catch {
+                        return
+                    }
+                }
+            }
+        }
+    }
+
+    private static func run(_ arguments: [String], label: String) {
+        DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
             process.arguments = arguments
@@ -47,6 +76,8 @@ enum PMSet {
                     let suffix = stderr.isEmpty ? "" : ": \(stderr)"
                     Log.error("\(label): pmset \(arguments.joined(separator: " ")) "
                         + "exited \(process.terminationStatus)\(suffix)")
+                } else {
+                    Log.info("\(label): pmset \(arguments.joined(separator: " ")) succeeded")
                 }
             } catch {
                 Log.error("\(label): failed to invoke pmset: \(error)")

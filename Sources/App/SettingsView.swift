@@ -134,6 +134,9 @@ struct GeneralSettingsView: View {
                 Text(L10n.string("settings.rightclick.showseparators.footer"))
                     .font(.footnote).foregroundStyle(.secondary)
             }
+
+            ConfigurationBackupSection()
+            OldVersionCleanupSection()
         }
         .formStyle(.grouped)
         .padding()
@@ -144,20 +147,35 @@ struct GeneralSettingsView: View {
 
 struct SystemSettingsView: View {
     @ObservedObject var config: Configuration
+    @ObservedObject private var mouseOwner = MouseEnhancementCoordinator.shared
 
     var body: some View {
         Form {
             Section {
+                HStack {
+                    Label(L10n.string("settings.mouseowner.label"), systemImage: "computermouse")
+                    Spacer()
+                    Text(L10n.string("settings.mouseowner.state.\(mouseOwner.state.rawValue)"))
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(L10n.string("settings.mouseowner.section"))
+            } footer: {
+                Text(L10n.string("settings.mouseowner.footer"))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+
+            Section {
                 Toggle(L10n.string("settings.scroll.mouse.label"),
-                       isOn: $config.invertMouseScroll)
+                       isOn: effectiveMouseToggle(\.invertMouseScroll))
                 Toggle(L10n.string("settings.scroll.trackpad.v.label"),
-                       isOn: $config.invertTrackpadVerticalScroll)
+                       isOn: effectiveMouseToggle(\.invertTrackpadVerticalScroll))
                 Toggle(L10n.string("settings.scroll.trackpad.h.label"),
-                       isOn: $config.invertTrackpadHorizontalScroll)
+                       isOn: effectiveMouseToggle(\.invertTrackpadHorizontalScroll))
                 if (config.invertMouseScroll
                     || config.invertTrackpadVerticalScroll
                     || config.invertTrackpadHorizontalScroll)
-                    && !AccessibilityHelper.isTrusted {
+                    && !mouseOwner.isSuspended && !AccessibilityHelper.isTrusted {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -175,11 +193,12 @@ struct SystemSettingsView: View {
                 Text(L10n.string("settings.scroll.footer"))
                     .font(.footnote).foregroundStyle(.secondary)
             }
+            .disabled(mouseOwner.isSuspended)
 
             Section {
                 Toggle(L10n.string("settings.smoothscroll.label"),
-                       isOn: $config.smoothScrollEnabled)
-                if config.smoothScrollEnabled {
+                       isOn: effectiveMouseToggle(\.smoothScrollEnabled))
+                if config.smoothScrollEnabled && !mouseOwner.isSuspended {
                     LabeledSlider(
                         label: L10n.string("settings.smoothscroll.distance.label"),
                         value: $config.smoothScrollMultiplier,
@@ -200,11 +219,12 @@ struct SystemSettingsView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .disabled(mouseOwner.isSuspended)
 
             Section {
                 Toggle(L10n.string("settings.linearpointer.label"),
-                       isOn: $config.linearPointerEnabled)
-                if config.linearPointerEnabled {
+                       isOn: effectiveMouseToggle(\.linearPointerEnabled))
+                if config.linearPointerEnabled && !mouseOwner.isSuspended {
                     LabeledSlider(
                         label: L10n.string("settings.linearpointer.speed.label"),
                         value: $config.pointerSpeedMultiplier,
@@ -219,6 +239,7 @@ struct SystemSettingsView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .disabled(mouseOwner.isSuspended)
 
             Section {
                 Toggle(L10n.string("settings.sleep.prevent.label"),
@@ -235,6 +256,11 @@ struct SystemSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func effectiveMouseToggle(_ keyPath: ReferenceWritableKeyPath<Configuration, Bool>) -> Binding<Bool> {
+        Binding(get: { !mouseOwner.isSuspended && config[keyPath: keyPath] },
+                set: { if !mouseOwner.isSuspended { config[keyPath: keyPath] = $0 } })
     }
 }
 

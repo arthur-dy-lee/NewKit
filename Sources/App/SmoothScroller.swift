@@ -14,7 +14,11 @@ import CoreGraphics
 /// so users who never opt in pay no event-pipeline cost.
 final class SmoothScroller: @unchecked Sendable {
     static let shared = SmoothScroller()
-    private init() {}
+    private let postEvent: @Sendable (CGEvent) -> Void
+
+    init(postEvent: @escaping @Sendable (CGEvent) -> Void = { $0.post(tap: .cghidEventTap) }) {
+        self.postEvent = postEvent
+    }
 
     /// Sentinel written into `kCGEventSourceUserData` of every event we inject.
     /// Two consumers care: this tap's own callback uses it to skip its output
@@ -57,8 +61,8 @@ final class SmoothScroller: @unchecked Sendable {
     var isEnabledForInverter: Bool { isEnabled }
 
     @MainActor
-    func apply() {
-        let on = Configuration.shared.smoothScrollEnabled
+    func apply(suspended: Bool) {
+        let on = !suspended && Configuration.shared.smoothScrollEnabled
         let m = Configuration.shared.smoothScrollMultiplier
         let d = Configuration.shared.smoothScrollDurationMs
         lock.lock()
@@ -67,7 +71,7 @@ final class SmoothScroller: @unchecked Sendable {
         durationMs = d
         lock.unlock()
 
-        Log.info("SmoothScroller.apply on=\(on) mult=\(m) dur=\(d)ms trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
+        Log.info("SmoothScroller.apply suspended=\(suspended) on=\(on) mult=\(m) dur=\(d)ms trusted=\(AccessibilityHelper.isTrusted) tapAlive=\(tap != nil)")
 
         if on {
             startIfNeeded()
@@ -116,6 +120,7 @@ final class SmoothScroller: @unchecked Sendable {
         runLoopSource = nil
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
         }
         tap = nil
     }
@@ -124,6 +129,7 @@ final class SmoothScroller: @unchecked Sendable {
     /// queue and ensures the animation timer is running.
     fileprivate func push(deltaY: Double, deltaX: Double) {
         lock.lock()
+        guard enabled else { lock.unlock(); return }
         pendingY += deltaY
         pendingX += deltaX
         let needTimer = abs(pendingY) > 0.5 || abs(pendingX) > 0.5
@@ -143,6 +149,7 @@ final class SmoothScroller: @unchecked Sendable {
     private func ensureTimer() {
         timerQueue.async { [weak self] in
             guard let self else { return }
+            guard self.isEnabled else { return }
             if self.animTimer != nil { return }
             let t = DispatchSource.makeTimerSource(queue: self.timerQueue)
             t.schedule(deadline: .now() + .milliseconds(Int(Self.tickInterval * 1000)),
@@ -154,8 +161,9 @@ final class SmoothScroller: @unchecked Sendable {
     }
 
     private func cancelTimer() {
-        timerQueue.async { [weak self] in
-            guard let self else { return }
+        // Called on main after disabling the tap. Wait for any in-flight tick
+        // to finish so no queued NK scroll animation survives the handoff.
+        timerQueue.sync {
             self.animTimer?.cancel()
             self.animTimer = nil
             self.lock.lock()
@@ -177,6 +185,7 @@ final class SmoothScroller: @unchecked Sendable {
         let factor = 1.0 - exp(-Self.tickInterval / tau)
 
         lock.lock()
+        guard enabled else { lock.unlock(); return }
         let py = pendingY
         let px = pendingX
         var emitY = py * factor
@@ -222,7 +231,7 @@ final class SmoothScroller: @unchecked Sendable {
         event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(intY))
         event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(intX))
         event.setIntegerValueField(.eventSourceUserData, value: Self.injectedTag)
-        event.post(tap: .cghidEventTap)
+        postEvent(event)
     }
 
     fileprivate static var tagValue: Int64 { injectedTag }

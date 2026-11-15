@@ -7,6 +7,33 @@
 /* Settings window */
 "settings.window.title"          = "NewKit Preferences";
 "settings.tab.general"           = "General";
+
+"cleanup.section" = "Clean Up Older Versions";
+"cleanup.run" = "Clean Up Older Versions";
+"cleanup.addFolder" = "Add Scan Folder…";
+"cleanup.clearFolders" = "Clear Added Folders";
+"cleanup.extraFolders" = "%d additional scan folder(s)";
+"cleanup.report" = "View Report";
+"cleanup.footer" = "Scans registered copies, Applications, Downloads, and any folders you add. Saves a configuration backup, then moves verified older NewKit apps and installers to Trash and removes obsolete registrations. Keeps the current app, running copies, preferences, and backups. Files that cannot be verified are retained and listed in the report. Manage login items and system permissions in System Settings.";
+"cleanup.result" = "Moved %d item(s) to Trash; removed %d registration(s); %d item(s) need review. See the report for details.";
+"cleanup.nothing" = "No older versions or obsolete registrations were found in the scanned locations. Your configuration was backed up.";
+
+"backup.section" = "Configuration Backup";
+"backup.export" = "Export Configuration…";
+"backup.restore" = "Restore Configuration…";
+"backup.reveal" = "Show Automatic Backups";
+"backup.footer" = "Backs up all NewKit preferences, including menu bar icon order and groups, shortcuts, file types, templates, and system options. Restoring saves a backup of your current configuration and restarts NewKit. macOS permissions remain managed by the system.";
+"backup.exported" = "Exported and verified: %@";
+"backup.failed.title" = "Configuration was not restored";
+"backup.confirm.title" = "Restore this configuration?";
+"backup.confirm.message" = "Backup created: %@\n\nYour current preferences will be replaced. NewKit will first save a backup of your current configuration, then restore this backup and restart.";
+"backup.confirm.restore" = "Restore and Restart";
+"backup.confirm.cancel" = "Cancel";
+"backup.error.invalid" = "This file is not a valid, complete NewKit configuration backup.";
+"backup.error.incompatible" = "This backup uses an unsupported format or belongs to a different NewKit app.";
+"backup.error.checksum" = "The backup failed its integrity check. Its contents may be damaged.";
+"backup.error.unavailable" = "NewKit could not read its configuration storage. No complete backup was created.";
+"backup.error.writeFailed" = "The configuration could not be restored. NewKit attempted to restore the previous values; your backup files are retained.";
 "settings.tab.iconmanager"       = "Menu Bar";
 "settings.tab.filetypes"         = "File Types";
 "settings.tab.templates"         = "Templates";
@@ -30,6 +57,13 @@
 "settings.tab.system"            = "System";
 
 /* System tab — reverse scrolling */
+"settings.mouseowner.section"       = "Automatic mouse handoff";
+"settings.mouseowner.label"         = "Managed by";
+"settings.mouseowner.state.newKit"  = "NK";
+"settings.mouseowner.state.smooze"  = "Smooze (NK paused)";
+"settings.mouseowner.state.resuming" = "Restoring NK settings…";
+"settings.mouseowner.footer"        = "NK pauses reverse scrolling, smooth scrolling, and pointer linearization while Smooze is running. When Smooze quits, NK automatically restores your saved toggles and parameters.";
+
 "settings.scroll.section"          = "Reverse Scrolling";
 "settings.scroll.mouse.label"      = "Reverse mouse wheel";
 "settings.scroll.trackpad.v.label" = "Reverse trackpad vertical scroll";
@@ -96,7 +130,7 @@
 "settings.iconmanager.identity.section" = "Running App";
 "settings.iconmanager.identity.version" = "Version (build)";
 "settings.iconmanager.enable"           = "Organize menu bar app icons";
-"settings.iconmanager.footer"           = "Choose a group for each app below. New apps start in Visible. Requires macOS 27 and Accessibility permission.";
+"settings.iconmanager.footer"           = "New app icons appear in the upper-right menu bar where macOS places them. Custom ordering requires access to the system’s menu bar layout file.";
 "settings.iconmanager.control"          = "Hidden Icons";
 "settings.iconmanager.control.footer"   = "The menu bar chevron switches only the Hidden group. Always Hidden stays out of the menu bar until you move an app to another group here.";
 "settings.iconmanager.expand"           = "Show Hidden Icons";
@@ -113,8 +147,11 @@
 "settings.iconmanager.drag.hint"        = "Drag app icons between lanes. Left to right within each lane matches the menu bar order. Drop on the left or right half of an icon to position it.";
 "settings.iconmanager.drag.end"         = "Place at the right end";
 "settings.iconmanager.order.moving"     = "Moving the icon in the menu bar…";
-"settings.iconmanager.order.deferred"   = "Order saved. The menu bar will be updated when both icons are visible.";
-"settings.iconmanager.order.failed"     = "macOS did not move that icon. Drag it again to retry.";
+"settings.iconmanager.order.deferred"   = "Order saved. NewKit will check again when the icons are visible.";
+"settings.iconmanager.order.failed"     = "Your custom order is saved. macOS hasn’t applied it to the menu bar yet.";
+"settings.iconmanager.layout.access"    = "Grant Menu Bar Layout Access…";
+"settings.iconmanager.layout.choose"    = "Select com.apple.MenuBar.plist so NewKit can apply your saved icon order.";
+"settings.iconmanager.layout.grant"     = "Grant Access";
 "settings.iconmanager.addrunning"        = "Add running app…";
 "settings.iconmanager.addrunning.hint"   = "If a menu bar app is missing, add its running helper here. Choose the process that owns the icon.";
 "settings.iconmanager.addrunning.search" = "Search name or bundle ID";
@@ -188,7 +225,7 @@
 "onboarding.feature.rightclick" = "Control + Right-click in Finder (needs Accessibility)";
 "onboarding.feature.toolbar"   = "Finder toolbar button (needs extension enabled)";
 "onboarding.acc.title"      = "Step 1 — Accessibility";
-"onboarding.acc.body"       = "Required for Control + Right-click and menu bar app discovery and ordering. NewKit reads menu bar accessibility information and simulates drags when you reorder icons.";
+"onboarding.acc.body"       = "Accessibility is required for Control + Right-click and reading menu bar icon positions.";
 "onboarding.ext.title"      = "Step 2 — Finder Extension";
 "onboarding.ext.body"       = "Adds a NewKit button to Finder's toolbar. Open System Settings → Login Items & Extensions → Finder, and turn on NewKit Finder Extension.";
 "onboarding.ext.open"       = "Open Extensions Settings";

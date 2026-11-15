@@ -39,6 +39,7 @@ English · [中文](./README.md)
 - ➡️ **Linear pointer** (acceleration disabled): removes Mac's mouse acceleration curve so cursor motion is linear — 1 cm of mouse travel is always the same cursor distance, like Windows / LinearMouse. **Mouse-only**; trackpad acceleration is preserved. Built on IOHIDEventSystemClient (private API), setting `HIDPointerAcceleration` to -1 per matched mouse service.
   - **Pointer speed**: overall sensitivity once linearized (1.0x = system current; 1.5x for big displays, 0.7x for fine work; range 0.25x – 3.00x)
   - Original system settings are restored when the toggle is turned off; if you plug in a new mouse while it's on, toggle it off and back on to apply
+- 🔄 **Automatic Smooze handoff**: NK pauses reverse scrolling, smooth scrolling, and pointer linearization while Smooze Pro is running, then restores your saved NK toggles and parameters when it quits. The System settings tab shows which app is managing the mouse.
 
 ---
 
@@ -54,6 +55,16 @@ Download the DMG installer or the signed and notarized app ZIP from the [Release
 > `sudo xattr -rd com.apple.quarantine /Applications/NewKit.app`
 
 The first launch shows a setup guide that walks you through Accessibility permission and enabling the Finder extension.
+
+### Configuration backups and old-version cleanup (1.4.3+)
+
+Under **Preferences → General**, export or restore configuration, including icon order, hidden groups, shortcuts, and custom templates. Restoring first saves the current configuration.
+
+**Clean Up Older Versions** first backs up configuration, then moves verified older NewKit apps and installers from the same developer to Trash and removes duplicate or obsolete app/Finder extension registrations. It keeps the current app, running copies, newer versions, preferences, and configuration backups. Finder and Dock are not restarted. Add other scan folders as needed; a cleanup report lists completed and skipped items.
+
+Old ZIP files must contain a verifiable NewKit app. Old DMG files need a verifiable NewKit signature that identifies their version. Unverified installers and inaccessible locations are retained and reported; unscanned locations may still contain other copies. Manage Trash, login items, and system permissions in macOS.
+
+Developers can run `DRY_RUN=1 Tools/cleanup_residuals.sh` for a read-only scan, or run the script without that variable to clean up. Requires installed NewKit 1.4.3 or later.
 
 ---
 

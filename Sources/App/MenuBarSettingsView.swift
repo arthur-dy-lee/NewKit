@@ -150,13 +150,19 @@ struct MenuBarSettingsView: View {
                     Text(stateText)
                         .font(.callout)
                     Spacer()
-                    if organizer.state == .failed {
+                    if organizer.state == .failed || organizer.orderState == .failed {
                         Button(L10n.string("settings.iconmanager.retry")) {
                             organizer.retry()
                         }
                     }
                 }
-                if organizer.orderState != .idle {
+                if organizer.enabled, trusted,
+                   !organizer.hasLayoutAccess || organizer.orderState == .accessNeeded {
+                    Button(L10n.string("settings.iconmanager.layout.access")) {
+                        organizer.chooseLayoutFile()
+                    }
+                }
+                if organizer.orderState != .idle && organizer.orderState != .accessNeeded {
                     Text(orderStatusText)
                         .font(.footnote)
                         .foregroundStyle(organizer.orderState == .failed ? .orange : .secondary)
@@ -174,7 +180,8 @@ struct MenuBarSettingsView: View {
                         ? "settings.iconmanager.collapse" : "settings.iconmanager.expand")) {
                         organizer.toggleHidden()
                     }
-                    .disabled(!organizer.enabled || organizer.state != .ready ||
+                    .disabled(!organizer.enabled ||
+                              (organizer.state != .ready && organizer.state != .failed) ||
                               !organizer.apps.contains { $0.group == .hidden && $0.isRunning })
                     Spacer()
                     Button(L10n.string("settings.iconmanager.refresh")) {
@@ -393,6 +400,7 @@ struct MenuBarSettingsView: View {
         case .idle: return ""
         case .moving: key = "settings.iconmanager.order.moving"
         case .deferred: key = "settings.iconmanager.order.deferred"
+        case .accessNeeded: return ""
         case .failed: key = "settings.iconmanager.order.failed"
         }
         return L10n.string(key)

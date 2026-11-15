@@ -51,6 +51,7 @@ final class MenuBarOrganizer: ObservableObject {
         case idle
         case moving
         case deferred
+        case accessNeeded
         case failed
     }
 
@@ -58,6 +59,7 @@ final class MenuBarOrganizer: ObservableObject {
     @Published private(set) var isExpanded = false
     @Published private(set) var state: State = .off
     @Published private(set) var orderState: OrderState = .idle
+    @Published private(set) var hasLayoutAccess = MenuBarSystemOrder.hasBookmark
     @Published private(set) var apps: [MenuBarAppEntry] = []
 
     private enum Key {
@@ -72,22 +74,9 @@ final class MenuBarOrganizer: ObservableObject {
     private var orderedIDs: [String]
     private var discoveredIDs = Set<String>()
     private var observedPositions: [String: CGFloat] = [:]
-    private struct PendingReorder {
-        let sourceID: String
-        let targetID: String
-        let placeAfter: Bool
-        let previousOrder: [String]
-        let generation: Int
-    }
-    private struct DeferredReorder: Equatable {
-        let sourceID: String
-        let target: MenuBarPhysicalOrder.Move.Target
-        let placeAfter: Bool
-    }
-    private var pendingReorder: PendingReorder?
-    private var deferredMoves: [DeferredReorder] = []
-    private var reorderGeneration = 0
-    private var physicalMoveInFlight = false
+    private var requestedPlacement: MenuBarPhysicalOrder.Placement?
+    private var attemptedOrder: MenuBarPhysicalOrder.Plan?
+    private var orderVerification: DispatchWorkItem?
     private var controlItem: NSStatusItem?
     private var activeAssertion: NSObject?
     private var pendingAssertion: NSObject?
@@ -96,7 +85,12 @@ final class MenuBarOrganizer: ObservableObject {
     private var refreshInProgress = false
     private var refreshRequested = false
     private var lastDiscoveryRefresh = Date.distantPast
-    private var ownStatusCheckInProgress = false
+    private var ownStatusCheckGeneration: Int?
+    private var displaySleeping = false
+    private var systemSleeping = false
+    private var wakeGeneration = 0
+    private var wakeRecoveryDeadline = Date.distantPast
+    private var nextWakeRecoveryAttempt = Date.distantPast
     private var timeout: Timer?
     private var healthTimer: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -133,34 +127,79 @@ final class MenuBarOrganizer: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") ?? "?"
+        Log.info("MenuBar diagnostics=system-order start version=\(version)(\(build)) enabled=\(enabled) "
+            + "trusted=\(AccessibilityHelper.isTrusted) supported=\(isSupported) "
+            + "path=\(Bundle.main.bundlePath) savedOrder=\(orderedIDs)")
 
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didLaunchApplicationNotification,
-                     NSWorkspace.didTerminateApplicationNotification,
-                     NSWorkspace.didWakeNotification] {
-            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                     NSWorkspace.didTerminateApplicationNotification] {
+            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
+                let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                let event = name == NSWorkspace.didLaunchApplicationNotification ? "app-launch" : "app-exit"
+                let reason = "\(event):\(app?.bundleIdentifier ?? "unknown")"
                 MainActor.assumeIsolated {
-                    self?.reconcile()
-                    self?.refreshApps()
+                    guard let self else { return }
+                    if self.enabled { Log.info("MenuBar trigger=\(reason)") }
+                    self.reconcile()
+                    self.refreshApps(reason: reason)
                 }
             })
         }
         observers.append(workspace.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.displaySleeping = true
+                self.suspendForSleep()
+            }
+        })
+        observers.append(workspace.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.displaySleeping = false
+                self?.scheduleWakeRecovery()
+            }
+        })
+        observers.append(workspace.addObserver(
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.releaseAssertions() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.systemSleeping = true
+                self.suspendForSleep()
+                self.releaseAssertions()
+            }
+        })
+        observers.append(workspace.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.systemSleeping = false
+                self?.scheduleWakeRecovery()
+            }
+        })
+        observers.append(workspace.addObserver(
+            forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleWakeRecovery() }
         })
 
         healthTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.healthCheck() }
         }
         reconcile()
-        if enabled { refreshApps() }
+        if enabled { refreshApps(reason: "startup") }
     }
 
     func stop() {
-        reorderGeneration += 1
-        pendingReorder = nil
+        Log.info("MenuBar stop")
+        resetOrderAttempt()
+        wakeGeneration += 1
         refreshGeneration += 1
         refreshRequested = false
         healthTimer?.invalidate()
@@ -171,6 +210,8 @@ final class MenuBarOrganizer: ObservableObject {
         observers.removeAll()
         releaseAssertions()
         removeControlItem()
+        displaySleeping = false
+        systemSleeping = false
         started = false
     }
 
@@ -178,27 +219,78 @@ final class MenuBarOrganizer: ObservableObject {
         guard enabled != value else { return }
         enabled = value
         defaults.set(value, forKey: Key.enabled)
+        resetOrderAttempt()
         if !value { isExpanded = false }
         reconcile()
         if value { refreshApps() }
     }
 
     func toggleHidden() {
-        guard enabled, state == .ready || state == .applying else { return }
-        // An in-flight drag may finish after the visibility assertion changes.
-        // Ignore its result and reconcile against the new displayed set.
-        reorderGeneration += 1
-        pendingReorder = nil
-        deferredMoves.removeAll()
-        orderState = .idle
+        guard enabled, !isSleeping,
+              state == .ready || state == .applying || state == .failed else { return }
+        Log.info("MenuBar trigger=toggle expanded=\(isExpanded) state=\(state)")
+        resetOrderAttempt()
         isExpanded.toggle()
         updateControlItem()
         applyVisibility()
     }
 
     func retry() {
+        resetOrderAttempt()
         reconcile()
         refreshApps()
+    }
+
+    func chooseLayoutFile() {
+        guard MenuBarSystemOrder.chooseFile() else { return }
+        hasLayoutAccess = true
+        retry()
+    }
+
+    private func resetOrderAttempt() {
+        orderVerification?.cancel()
+        orderVerification = nil
+        attemptedOrder = nil
+        orderState = .idle
+    }
+
+    private var isSleeping: Bool { displaySleeping || systemSleeping }
+
+    private func suspendForSleep() {
+        Log.info("MenuBar suspend displaySleeping=\(displaySleeping) systemSleeping=\(systemSleeping)")
+        resetOrderAttempt()
+        wakeGeneration += 1
+        applyGeneration += 1
+        ownStatusCheckGeneration = nil
+        timeout?.invalidate()
+        timeout = nil
+        if let pendingAssertion { bridge.invalidateAssertion(pendingAssertion) }
+        pendingAssertion = nil
+        refreshGeneration += 1
+        refreshRequested = false
+        if state == .applying {
+            state = activeAssertion == nil ? .failed : .ready
+        }
+    }
+
+    private func scheduleWakeRecovery() {
+        wakeGeneration += 1
+        guard started, enabled, !isSleeping else { return }
+        Log.info("MenuBar trigger=wake generation=\(wakeGeneration) state=\(state)")
+        let generation = wakeGeneration
+        wakeRecoveryDeadline = Date().addingTimeInterval(60)
+        nextWakeRecoveryAttempt = Date().addingTimeInterval(10)
+        // MenuBarAgent and its Accessibility tree may recover after the display
+        // wake notification. Retry only if the first reconciliation failed.
+        for (index, delay) in [0.5, 2.5, 6.0].enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.started, self.enabled, !self.isSleeping,
+                      generation == self.wakeGeneration else { return }
+                guard index == 0 || self.state == .failed else { return }
+                self.reconcile()
+                self.refreshApps(reason: "wake:\(generation):\(index)")
+            }
+        }
     }
 
     func group(for bundleIdentifier: String) -> MenuBarGroup {
@@ -206,8 +298,15 @@ final class MenuBarOrganizer: ObservableObject {
     }
 
     func setGroup(_ group: MenuBarGroup, for app: MenuBarAppEntry) {
-        guard app.group != group else { return }
-        moveApp(app.id, to: group, before: nil)
+        guard group != self.group(for: app.id) else { return }
+        assign(app, to: group)
+        saveAssignments()
+        if requestedPlacement?.source == app.id || requestedPlacement?.target == app.id {
+            requestedPlacement = nil
+        }
+        resetOrderAttempt()
+        rebuildApps()
+        reconcile()
     }
 
     /// Running helpers whose status items are not exposed by Accessibility can
@@ -240,79 +339,44 @@ final class MenuBarOrganizer: ObservableObject {
         rebuildApps()
     }
 
-    /// The order within each section is the physical left-to-right order. A
-    /// same-section drag is verified immediately; section changes are reconciled
-    /// after the visibility assertion updates the menu bar.
+    /// Group changes apply immediately. The next scan uses the system's latest
+    /// positions to apply any new order, including items just made visible.
     func moveApp(_ sourceID: String, to group: MenuBarGroup, before targetID: String?) {
-        guard let source = apps.first(where: { $0.id == sourceID }),
-              targetID != sourceID else { return }
-        // A physical reorder may still be settling. A change of group is a
-        // visibility choice and should take effect as soon as the tile drops.
-        guard source.group != group || orderState != .moving else { return }
-        if let targetID {
-            guard apps.contains(where: { $0.id == targetID && $0.group == group }) else { return }
+        guard let source = apps.first(where: { $0.id == sourceID }), targetID != sourceID else { return }
+        let peers = apps.filter { $0.group == group && $0.id != sourceID }.map(\.id)
+        if let targetID, !peers.contains(targetID) { return }
+        let placement = targetID.map {
+            MenuBarPhysicalOrder.Placement(source: sourceID, target: $0, after: false)
+        } ?? peers.last.map {
+            MenuBarPhysicalOrder.Placement(source: sourceID, target: $0, after: true)
         }
-
-        let previousGroup = source.group
-        let previousDisplayedIDs = desiredDisplayedIDs()
-        let previousOrder = apps.map(\.id)
-        assignments[sourceID] = SavedMenuBarApp(
-            bundleIdentifier: sourceID, name: source.name, group: group
-        )
+        Log.info("MenuBar trigger=settings-drop source=\(sourceID) group=\(source.group)->\(group) "
+            + "before=\(targetID ?? "end")")
+        assign(source, to: group)
         saveAssignments()
 
-        var nextOrder = previousOrder.filter { $0 != sourceID }
-        if let targetID, let index = nextOrder.firstIndex(of: targetID) {
-            nextOrder.insert(sourceID, at: index)
-        } else if let last = nextOrder.lastIndex(where: { self.group(for: $0) == group }) {
-            nextOrder.insert(sourceID, at: last + 1)
+        var desired = apps.map(\.id).filter { $0 != sourceID }
+        if let placement, let index = desired.firstIndex(of: placement.target) {
+            desired.insert(sourceID, at: placement.after ? index + 1 : index)
         } else {
-            nextOrder.append(sourceID)
+            desired.append(sourceID)
         }
-        orderedIDs = nextOrder
+        orderedIDs = MenuBarPhysicalOrder.savingOrder(
+            desired, previous: orderedIDs, including: [sourceID] + (placement.map { [$0.target] } ?? [])
+        )
         defaults.set(orderedIDs, forKey: Key.order)
+        requestedPlacement = group == .alwaysHidden ? nil : placement
+        resetOrderAttempt()
         rebuildApps()
-
-        reorderGeneration += 1
-        deferredMoves.removeAll()
-        let desired = desiredDisplayedIDs()
-        let sourceIndex = desired.firstIndex(of: sourceID)
-        let previousIndex = previousDisplayedIDs.firstIndex(of: sourceID)
-        let physicalTargetID: String?
-        let placeAfter: Bool
-        if previousGroup == group, let sourceIndex, let previousIndex,
-           sourceIndex > previousIndex {
-            physicalTargetID = desired[sourceIndex - 1]
-            placeAfter = true
-        } else if previousGroup == group, let sourceIndex, let previousIndex,
-                  sourceIndex < previousIndex, sourceIndex + 1 < desired.count {
-            physicalTargetID = desired[sourceIndex + 1]
-            placeAfter = false
+        if source.group != group {
+            reconcile()
         } else {
-            physicalTargetID = nil
-            placeAfter = false
+            refreshApps(reason: "settings-drop")
         }
-        if let physicalTargetID, previousGroup == group, enabled,
-           state == .ready, AccessibilityHelper.isTrusted,
-           observedPositions[sourceID] != nil,
-           observedPositions[physicalTargetID] != nil {
-            pendingReorder = PendingReorder(
-                sourceID: sourceID, targetID: physicalTargetID,
-                placeAfter: placeAfter,
-                previousOrder: previousOrder, generation: reorderGeneration
-            )
-            orderState = .moving
-        } else {
-            pendingReorder = nil
-            orderState = physicalTargetID == nil || !enabled ? .idle : .deferred
-        }
-
-        if previousGroup != group { reconcile() }
-        startPendingReorderIfReady()
-        reconcilePhysicalOrder()
     }
 
-    func refreshApps() {
+    func refreshApps(reason: String = "requested") {
+        guard !isSleeping else { return }
         guard AccessibilityHelper.isTrusted else {
             refreshGeneration += 1
             refreshRequested = false
@@ -338,7 +402,7 @@ final class MenuBarOrganizer: ObservableObject {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.refreshInProgress = false
-                    if generation == self.refreshGeneration {
+                    if generation == self.refreshGeneration, !self.isSleeping {
                         if let found {
                             // Use the same screen for app positions and the
                             // chevron. Its location is the physical boundary
@@ -367,20 +431,27 @@ final class MenuBarOrganizer: ObservableObject {
                                 .compactMap(\.bundleIdentifier))
                             let discovered = found.union(self.discoveredIDs.intersection(runningIDs))
                             let changed = self.discoveredIDs != discovered
+                            if changed {
+                                let added = discovered.subtracting(self.discoveredIDs).sorted()
+                                let defaultsVisible = added.filter { self.assignments[$0] == nil }
+                                Log.info("MenuBar scan=\(generation) reason=\(reason) "
+                                    + "added=\(added) removed=\(self.discoveredIDs.subtracting(discovered).sorted()) "
+                                    + "defaultVisible=\(defaultsVisible)")
+                            }
                             self.discoveredIDs = discovered
                             // Positions describe the current physical bar only;
                             // stale coordinates would confuse reorder checks.
                             self.observedPositions = positions
                             self.rebuildApps()
                             if changed { self.applyVisibility() }
-                            self.reconcilePhysicalOrder()
+                            self.reconcilePhysicalOrder(reason: "scan:\(generation):\(reason)")
                         } else {
                             self.rebuildApps()
                         }
                     }
                     if self.refreshRequested {
                         self.refreshRequested = false
-                        self.refreshApps()
+                        self.refreshApps(reason: "coalesced")
                     }
                 }
             }
@@ -388,16 +459,21 @@ final class MenuBarOrganizer: ObservableObject {
     }
 
     private func healthCheck() {
-        guard enabled else { return }
+        guard enabled, !isSleeping else { return }
         if !AccessibilityHelper.isTrusted || !isSupported {
             reconcile()
         } else if state == .permissionNeeded || state == .installationNeeded || state == .unavailable {
             reconcile()
-            refreshApps()
+            refreshApps(reason: "health-permission-recovery")
+        } else if state == .failed, Date() < wakeRecoveryDeadline,
+                  Date() >= nextWakeRecoveryAttempt {
+            nextWakeRecoveryAttempt = Date().addingTimeInterval(10)
+            reconcile()
+            refreshApps(reason: "health-wake-recovery")
         } else if Date().timeIntervalSince(lastDiscoveryRefresh) >= 30 {
             // A menu bar item may register after its app's launch notification.
             // Recheck periodically so those late icons enter the Visible group.
-            refreshApps()
+            refreshApps(reason: "health-periodic")
         }
         if activeAssertion != nil {
             verifyOwnStatusItemAfterActivation(generation: applyGeneration)
@@ -409,21 +485,19 @@ final class MenuBarOrganizer: ObservableObject {
             releaseAssertions()
             removeControlItem()
             state = .off
-            startDeferredReorderIfReady()
             return
         }
+        guard !isSleeping else { return }
         guard isSupported else {
             releaseAssertions()
             removeControlItem()
             state = .unavailable
-            failPendingReorder()
             return
         }
         guard AccessibilityHelper.isTrusted else {
             releaseAssertions()
             removeControlItem()
             state = .permissionNeeded
-            failPendingReorder()
             return
         }
         guard isRegisteredApplication else {
@@ -481,6 +555,7 @@ final class MenuBarOrganizer: ObservableObject {
     }
 
     private func applyVisibility() {
+        guard !isSleeping else { return }
         guard enabled, isSupported, AccessibilityHelper.isTrusted,
               isRegisteredApplication else {
             reconcile()
@@ -507,7 +582,6 @@ final class MenuBarOrganizer: ObservableObject {
         guard !hiddenIDs.isDisjoint(with: runningIDs) else {
             releaseAssertions()
             state = .ready
-            startPendingReorderIfReady()
             scheduleOrderRefresh()
             return
         }
@@ -531,7 +605,6 @@ final class MenuBarOrganizer: ObservableObject {
                 self.pendingAssertion = nil
                 self.state = .ready
                 self.verifyOwnStatusItemAfterActivation(generation: generation)
-                self.startPendingReorderIfReady()
                 self.scheduleOrderRefresh()
             }
         } as? NSObject
@@ -550,29 +623,34 @@ final class MenuBarOrganizer: ObservableObject {
     }
 
     private func failOpen() {
+        Log.error("MenuBar visibility failed; restoring all icons applyGeneration=\(applyGeneration)")
+        resetOrderAttempt()
         releaseAssertions()
         state = .failed
-        failPendingReorder()
     }
 
     /// A successful assertion callback does not guarantee that the system kept
     /// our control item visible. Restore the whole bar if the user would lose
     /// the only menu bar control for expanding hidden icons.
-    private func verifyOwnStatusItemAfterActivation(generation: Int) {
+    private func verifyOwnStatusItemAfterActivation(generation: Int, attempt: Int = 0) {
+        guard !isSleeping, generation == applyGeneration,
+              activeAssertion != nil else { return }
         guard let ownBundle = Bundle.main.bundleIdentifier else {
             failOpen()
             return
         }
-        guard !ownStatusCheckInProgress else { return }
-        ownStatusCheckInProgress = true
+        guard ownStatusCheckGeneration != generation else { return }
+        ownStatusCheckGeneration = generation
         let requiredCount = (Configuration.shared.showMenuBarIcon ? 1 : 0)
             + (controlItem == nil ? 0 : 1)
         guard requiredCount > 0 else {
-            ownStatusCheckInProgress = false
+            ownStatusCheckGeneration = nil
             return
         }
         let scanner = bridge
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, !self.isSleeping,
+                  generation == self.applyGeneration else { return }
             DispatchQueue.global(qos: .userInitiated).async {
                 let screens = Dictionary(grouping: scanner.visibleMenuBarItems()) {
                     "\(Int($0.screenFrame.minX)):\(Int($0.screenFrame.minY))"
@@ -582,13 +660,21 @@ final class MenuBarOrganizer: ObservableObject {
                 }.max() ?? 0
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
-                        guard let self else { return }
-                        self.ownStatusCheckInProgress = false
-                        guard generation == self.applyGeneration,
+                        guard self.ownStatusCheckGeneration == generation else { return }
+                        self.ownStatusCheckGeneration = nil
+                        guard !self.isSleeping, generation == self.applyGeneration,
                               self.activeAssertion != nil else { return }
                         if visibleCount < requiredCount {
-                            Log.error("Menu bar hiding also hid NewKit controls; restoring all icons")
-                            self.failOpen()
+                            // The menu bar's AX tree can disappear briefly as
+                            // the display wakes or the login window closes.
+                            if attempt < 2 {
+                                self.verifyOwnStatusItemAfterActivation(
+                                    generation: generation, attempt: attempt + 1
+                                )
+                            } else {
+                                Log.error("Menu bar hiding also hid NewKit controls; restoring all icons")
+                                self.failOpen()
+                            }
                         }
                     }
                 }
@@ -596,144 +682,66 @@ final class MenuBarOrganizer: ObservableObject {
         }
     }
 
-    private func startPendingReorderIfReady() {
-        guard enabled, state == .ready, !physicalMoveInFlight,
-              let move = pendingReorder else { return }
-        pendingReorder = nil
-        physicalMoveInFlight = true
-        bridge.moveBundleIdentifier(move.sourceID,
-                                    relativeToBundleIdentifier: move.targetID,
-                                    placeAfter: move.placeAfter) { [weak self] moved in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.physicalMoveInFlight = false
-                guard move.generation == self.reorderGeneration else {
-                    self.refreshApps()
-                    return
-                }
-                if moved {
-                    self.orderState = .idle
-                    self.refreshApps()
-                } else {
-                    self.orderedIDs = move.previousOrder
-                    self.defaults.set(self.orderedIDs, forKey: Key.order)
-                    self.rebuildApps()
-                    self.orderState = .failed
-                }
-            }
-        }
-    }
-
-    private func desiredDisplayedIDs() -> [String] {
-        let visible = apps.filter { $0.group == .visible }.map(\.id)
-        let hidden = apps.filter { $0.group == .hidden }.map(\.id)
-        return MenuBarPhysicalOrder.displayedIDs(
-            visible: visible, hidden: hidden, expanded: isExpanded
-        )
-    }
-
-    /// The assessment assertion may restore items asynchronously. Read their
-    /// actual positions after it settles, then place hidden items before the
-    /// visible section without moving already ordered visible items.
     private func scheduleOrderRefresh() {
         let generation = applyGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self, generation == self.applyGeneration else { return }
-            self.refreshApps()
+            self.refreshApps(reason: "visibility-settled:\(generation)")
         }
     }
 
-    private func reconcilePhysicalOrder() {
-        guard enabled, state == .ready, AccessibilityHelper.isTrusted,
-              !physicalMoveInFlight, pendingReorder == nil, deferredMoves.isEmpty,
-              orderState != .moving, orderState != .failed else { return }
-        let visible = apps.filter { $0.group == .visible }.map(\.id)
-        let hidden = apps.filter { $0.group == .hidden }.map(\.id)
-        if controlItem != nil {
-            // A hidden icon can have the correct order among apps while it is
-            // still physically to the right of the reveal control. Keep the
-            // divider in the plan, and wait for it to be observable rather
-            // than accepting an app-only ordering as complete.
-            guard let dividerX = observedPositions[MenuBarPhysicalOrder.dividerID] else {
+    private func reconcilePhysicalOrder(reason: String) {
+        guard enabled, !isSleeping, state == .ready, AccessibilityHelper.isTrusted else { return }
+        let plan = MenuBarPhysicalOrder.plan(
+            visible: apps.filter { $0.group == .visible }.map(\.id),
+            hidden: isExpanded ? apps.filter { $0.group == .hidden }.map(\.id) : [],
+            saved: orderedIDs, positions: observedPositions, placement: requestedPlacement
+        )
+        if orderState == .moving {
+            guard orderVerification == nil else { return }
+            if observedPositions.isEmpty {
                 orderState = .deferred
                 return
             }
-            deferredMoves = MenuBarPhysicalOrder.movesToMatch(
-                visible: visible, hidden: hidden, expanded: isExpanded,
-                positions: observedPositions, dividerX: dividerX
-            ).map { DeferredReorder(sourceID: $0.sourceID,
-                                    target: $0.target, placeAfter: $0.placeAfter) }
-        } else {
-            deferredMoves = MenuBarPhysicalOrder.movesToMatch(
-                desiredDisplayedIDs(), positions: observedPositions
-            ).map { DeferredReorder(sourceID: $0.0, target: .app($0.1),
-                                    placeAfter: false) }
         }
-        guard !deferredMoves.isEmpty else {
-            orderState = .idle
+        if plan.isEmpty {
+            if orderState == .moving { Log.info("MenuBar system order verified reason=\(reason)") }
+            if let placement = requestedPlacement, observedPositions[placement.source] != nil,
+               observedPositions[placement.target] != nil { requestedPlacement = nil }
+            resetOrderAttempt()
             return
         }
-        orderState = .deferred
-        startDeferredReorderIfReady()
-    }
-
-    private func startDeferredReorderIfReady() {
-        guard enabled, state == .ready, pendingReorder == nil,
-              !physicalMoveInFlight, orderState != .moving,
-              AccessibilityHelper.isTrusted,
-              let move = deferredMoves.first else { return }
-
-        if case .control = move.target, controlItem == nil { return }
-        reorderGeneration += 1
-        let generation = reorderGeneration
-        orderState = .moving
-        physicalMoveInFlight = true
-        let completion: (Bool) -> Void = { [weak self] moved in
-            MainActor.assumeIsolated {
+        if orderState == .moving {
+            attemptedOrder = plan
+            orderState = .failed
+            Log.info("MenuBar system order verification failed reason=\(reason)")
+            return
+        }
+        if attemptedOrder == plan, orderState != .deferred { return }
+        attemptedOrder = plan
+        switch MenuBarSystemOrder.apply(plan) {
+        case .updated(let count):
+            orderState = .moving
+            Log.info("MenuBar system order updated reason=\(reason) positions=\(count)")
+            let verification = DispatchWorkItem { [weak self] in
                 guard let self else { return }
-                self.physicalMoveInFlight = false
-                guard generation == self.reorderGeneration else {
-                    self.refreshApps()
-                    return
-                }
-                if moved {
-                    if self.deferredMoves.first == move {
-                        self.deferredMoves.removeFirst()
-                    }
-                    self.orderState = self.deferredMoves.isEmpty ? .idle : .deferred
-                    if self.deferredMoves.isEmpty { self.refreshApps() }
-                    else { self.startDeferredReorderIfReady() }
-                } else {
-                    self.deferredMoves.removeAll()
-                    self.orderState = .failed
-                }
+                self.orderVerification = nil
+                self.refreshApps(reason: "verify-system-order")
             }
+            orderVerification = verification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75, execute: verification)
+        case .unchanged, .failed:
+            orderState = .failed
+            Log.info("MenuBar system order not applied reason=\(reason)")
+        case .accessNeeded:
+            orderState = .accessNeeded
+            Log.info("MenuBar system order access needed reason=\(reason)")
         }
-        switch move.target {
-        case .app(let targetID):
-            bridge.moveBundleIdentifier(move.sourceID,
-                                        relativeToBundleIdentifier: targetID,
-                                        placeAfter: move.placeAfter,
-                                        completion: completion)
-        case .control:
-            bridge.moveBundleIdentifier(move.sourceID,
-                                        relativeToStatusItem: controlItem!,
-                                        placeAfter: move.placeAfter,
-                                        completion: completion)
-        }
-    }
-
-    private func failPendingReorder() {
-        guard let move = pendingReorder else { return }
-        pendingReorder = nil
-        orderedIDs = move.previousOrder
-        defaults.set(orderedIDs, forKey: Key.order)
-        rebuildApps()
-        orderState = .failed
     }
 
     private func releaseAssertions() {
         applyGeneration += 1
+        ownStatusCheckGeneration = nil
         timeout?.invalidate()
         timeout = nil
         if let pendingAssertion { bridge.invalidateAssertion(pendingAssertion) }
@@ -749,6 +757,10 @@ final class MenuBarOrganizer: ObservableObject {
         }
     }
 
+    private func assign(_ app: MenuBarAppEntry, to group: MenuBarGroup) {
+        assignments[app.id] = SavedMenuBarApp(bundleIdentifier: app.id, name: app.name, group: group)
+    }
+
     private func rebuildApps() {
         let ownBundle = Bundle.main.bundleIdentifier
         let systemHosts: Set<String> = [
@@ -758,18 +770,17 @@ final class MenuBarOrganizer: ObservableObject {
         let ids = discoveredIDs.union(assignments.keys).filter { id in
             runningIDs.contains(id) && id != ownBundle && !systemHosts.contains(id)
         }
-        var savedOrder: [String: Int] = [:]
-        for (index, id) in orderedIDs.enumerated() where savedOrder[id] == nil {
-            savedOrder[id] = index
+        let system = ids.map { makeEntry(for: $0) }.sorted { left, right in
+            let a = observedPositions[left.id] ?? .infinity
+            let b = observedPositions[right.id] ?? .infinity
+            if a != b { return a < b }
+            let names = left.name.localizedStandardCompare(right.name)
+            return names == .orderedSame ? left.id < right.id : names == .orderedAscending
         }
-        apps = ids.map { makeEntry(for: $0) }.sorted { left, right in
-            if let a = savedOrder[left.id], let b = savedOrder[right.id] { return a < b }
-            if savedOrder[left.id] != nil { return true }
-            if savedOrder[right.id] != nil { return false }
-            if let a = observedPositions[left.id], let b = observedPositions[right.id] { return a < b }
-            if observedPositions[left.id] != nil { return true }
-            if observedPositions[right.id] != nil { return false }
-            return left.name.localizedStandardCompare(right.name) == .orderedAscending
+        let byID = Dictionary(uniqueKeysWithValues: system.map { ($0.id, $0) })
+        apps = MenuBarGroup.allCases.flatMap { group in
+            let members = system.filter { $0.group == group }.map(\.id)
+            return MenuBarPhysicalOrder.applyingSavedOrder(orderedIDs, to: members).compactMap { byID[$0] }
         }
     }
 

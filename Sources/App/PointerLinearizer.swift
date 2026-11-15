@@ -53,22 +53,20 @@ final class PointerLinearizer {
     /// Saved per-mouse defaults (keyed by IOHID registry ID) so we can put the
     /// system back the way we found it when the user disables linearization.
     private var saved: [UInt64: SavedSettings] = [:]
-    private var wakeObserver: NSObjectProtocol?
-
     private struct SavedSettings {
-        let acceleration: Int32?
-        let resolution:   Int32?
+        var acceleration: PointerPropertyLease?
+        var mouseAcceleration: PointerPropertyLease?
+        var resolution: PointerPropertyLease?
     }
 
     /// Pulls the current toggle state from `Configuration` and applies or
     /// reverts pointer settings to match. Safe to call repeatedly.
-    func apply() {
-        let on = Configuration.shared.linearPointerEnabled
+    func apply(suspended: Bool) {
+        let on = !suspended && Configuration.shared.linearPointerEnabled
         let mult = Configuration.shared.pointerSpeedMultiplier
 
         if !on {
             restoreAll()
-            unobserveWake()
             return
         }
 
@@ -77,7 +75,6 @@ final class PointerLinearizer {
             return
         }
         applyToServices(in: client, multiplier: mult)
-        observeWake()
     }
 
     private func ensureClient() -> AnyObject? {
@@ -110,78 +107,79 @@ final class PointerLinearizer {
 
         for service in services {
             let id = registryID(of: service)
-            // Snapshot defaults once per service so toggling off restores
-            // exactly what the user had configured in System Settings.
-            if saved[id] == nil {
-                saved[id] = SavedSettings(
-                    acceleration: int32Property(service, key: Self.kHIDPointerAcceleration),
-                    resolution:   int32Property(service, key: Self.kHIDPointerResolution)
-                )
-            }
+            var original = saved[id] ?? SavedSettings()
+            let baseline = original.resolution?.originalValue
+                ?? int32Property(service, key: Self.kHIDPointerResolution)
 
             // 1. Disable acceleration curve.
-            setInt32(service, key: Self.kHIDPointerAcceleration, value: Self.accelerationDisabled)
+            applyOwnedProperty(service, key: Self.kHIDPointerAcceleration,
+                               value: Self.accelerationDisabled, lease: &original.acceleration)
             // Some IOHID drivers respect the older "Mouse" key instead of
             // "Pointer". Writing both is harmless.
-            setInt32(service, key: Self.kHIDMouseAcceleration, value: Self.accelerationDisabled)
+            applyOwnedProperty(service, key: Self.kHIDMouseAcceleration,
+                               value: Self.accelerationDisabled, lease: &original.mouseAcceleration)
 
             // 2. Scale resolution. resolution is counts-per-inch in 16.16
             // fixed-point — higher value = slower pointer per inch of
             // physical motion. Multiplier > 1 means "faster", so divide.
-            if let baseline = saved[id]?.resolution, baseline > 0 {
-                let scaled = Int32((Double(baseline) / max(0.1, multiplier)).rounded())
-                setInt32(service, key: Self.kHIDPointerResolution, value: scaled)
+            if let baseline, baseline > 0 {
+                let scaled = Int32(min(Double(Int32.max),
+                                       (Double(baseline) / max(0.1, multiplier)).rounded()))
+                applyOwnedProperty(service, key: Self.kHIDPointerResolution,
+                                   value: scaled, lease: &original.resolution)
             }
+            saved[id] = original
         }
     }
 
     private func restoreAll() {
+        guard !saved.isEmpty else { return }
+        let owned = saved
+        // End ownership even if a device has disappeared. An old snapshot
+        // must never be replayed later while Smooze is managing the mouse.
+        saved.removeAll()
         guard let client else { return }
         guard let unmanaged = IOHIDEventSystemClientCopyServices(client) else { return }
         let services = unmanaged.takeRetainedValue() as [AnyObject]
         for service in services {
             let id = registryID(of: service)
-            guard let original = saved[id] else { continue }
-            if let acc = original.acceleration {
-                setInt32(service, key: Self.kHIDPointerAcceleration, value: acc)
-                setInt32(service, key: Self.kHIDMouseAcceleration,   value: acc)
-            }
-            if let res = original.resolution {
-                setInt32(service, key: Self.kHIDPointerResolution, value: res)
-            }
+            guard let original = owned[id] else { continue }
+            restoreOwnedProperty(service, key: Self.kHIDPointerAcceleration, lease: original.acceleration)
+            restoreOwnedProperty(service, key: Self.kHIDMouseAcceleration, lease: original.mouseAcceleration)
+            restoreOwnedProperty(service, key: Self.kHIDPointerResolution, lease: original.resolution)
         }
-        saved.removeAll()
-        Log.info("PointerLinearizer: restored pointer settings")
+        Log.info("PointerLinearizer: released NK pointer settings without overwriting later changes")
     }
 
-    /// Re-apply on system wake — sleep can reset HID property writes on some
-    /// chipsets, and freshly-attached mice are picked up here too.
-    private func observeWake() {
-        if wakeObserver != nil { return }
-        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            MainActor.assumeIsolated {
-                PointerLinearizer.shared.apply()
-            }
+    private func applyOwnedProperty(_ service: AnyObject, key: CFString,
+                                    value: Int32, lease: inout PointerPropertyLease?) {
+        guard let current = int32Property(service, key: key) else { return }
+        var owned = lease ?? PointerPropertyLease(originalValue: current)
+        if setInt32(service, key: key, value: value) {
+            owned.didApply(value)
+            lease = owned
         }
     }
 
-    private func unobserveWake() {
-        if let token = wakeObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(token)
+    private func restoreOwnedProperty(_ service: AnyObject, key: CFString,
+                                      lease: PointerPropertyLease?) {
+        guard let lease else { return }
+        if let original = lease.valueToRestore(currentValue: int32Property(service, key: key)) {
+            _ = setInt32(service, key: key, value: original)
+        } else {
+            Log.info("PointerLinearizer: preserving external change to \(key)")
         }
-        wakeObserver = nil
     }
 
     // MARK: - IOHIDServiceClient property helpers
 
-    private func setInt32(_ service: AnyObject, key: CFString, value: Int32) {
+    @discardableResult
+    private func setInt32(_ service: AnyObject, key: CFString, value: Int32) -> Bool {
         var v = value
         let cf = CFNumberCreate(kCFAllocatorDefault, .sInt32Type, &v) as AnyObject
-        _ = IOHIDServiceClientSetProperty(service, key, cf)
+        let applied = IOHIDServiceClientSetProperty(service, key, cf)
+        if !applied { Log.error("PointerLinearizer: could not set \(key)") }
+        return applied
     }
 
     private func int32Property(_ service: AnyObject, key: CFString) -> Int32? {

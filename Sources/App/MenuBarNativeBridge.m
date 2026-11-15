@@ -5,7 +5,6 @@
 #import <dlfcn.h>
 #import <math.h>
 #import <objc/message.h>
-#import <unistd.h>
 
 static id _Nullable AXAttribute(AXUIElementRef element, CFStringRef key) {
     CFTypeRef value = NULL;
@@ -104,34 +103,6 @@ static NSArray<MenuBarNativeItem *> *HostedMenuBarItems(void) {
     return items;
 }
 
-static BOOL FindUniquePair(NSArray<MenuBarNativeItem *> *items,
-                           NSString *sourceID, NSString *targetID,
-                           MenuBarNativeItem **source, MenuBarNativeItem **target) {
-    for (MenuBarNativeItem *candidate in items) {
-        if (![candidate.bundleIdentifier isEqualToString:sourceID]) continue;
-        NSMutableArray<MenuBarNativeItem *> *sources = [NSMutableArray array];
-        NSMutableArray<MenuBarNativeItem *> *targets = [NSMutableArray array];
-        for (MenuBarNativeItem *item in items) {
-            if (!CGRectEqualToRect(item.screenFrame, candidate.screenFrame)) continue;
-            if ([item.bundleIdentifier isEqualToString:sourceID]) [sources addObject:item];
-            if ([item.bundleIdentifier isEqualToString:targetID]) [targets addObject:item];
-        }
-        if (sources.count == 1 && targets.count == 1) {
-            *source = sources.firstObject;
-            *target = targets.firstObject;
-            return YES;
-        }
-    }
-    return NO;
-}
-
-static BOOL HasRequestedOrder(MenuBarNativeItem *source, MenuBarNativeItem *target,
-                              BOOL placeAfter) {
-    CGFloat sourceX = CGRectGetMidX(source.frame);
-    CGFloat targetX = CGRectGetMidX(target.frame);
-    return placeAfter ? sourceX > targetX : sourceX < targetX;
-}
-
 // NSStatusItem is not itself exposed in MenuBarAgent's AX tree. Its button's
 // AppKit window gives us a precise on-screen rectangle; match that to the host
 // on the same Quartz display. This distinguishes NewKit's reveal control from
@@ -177,60 +148,6 @@ static MenuBarNativeItem *StatusItemHost(NSArray<MenuBarNativeItem *> *items,
                                      CGRectGetWidth(best.frame)) * 0.45);
     if (bestDistance > tolerance || secondDistance - bestDistance < 4.0) return nil;
     return best;
-}
-
-static MenuBarNativeItem *UniqueSourceOnScreen(NSArray<MenuBarNativeItem *> *items,
-                                               NSString *sourceID,
-                                               MenuBarNativeItem *target) {
-    MenuBarNativeItem *found = nil;
-    for (MenuBarNativeItem *item in items) {
-        if (![item.bundleIdentifier isEqualToString:sourceID] ||
-            !CGRectEqualToRect(item.screenFrame, target.screenFrame)) continue;
-        if (found) return nil;
-        found = item;
-    }
-    return found;
-}
-
-static void PostMouse(CGEventSourceRef source, CGEventType type, CGPoint point,
-                      CGEventFlags flags) {
-    CGEventRef event = CGEventCreateMouseEvent(source, type, point, kCGMouseButtonLeft);
-    if (!event) return;
-    CGEventSetFlags(event, flags);
-    CGEventPost(kCGHIDEventTap, event);
-    CFRelease(event);
-}
-
-static BOOL DragItem(MenuBarNativeItem *sourceItem, MenuBarNativeItem *targetItem,
-                     BOOL placeAfter) {
-    CGEventSourceRef eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-    if (!eventSource) return NO;
-    CGPoint start = CGPointMake(CGRectGetMidX(sourceItem.frame),
-                                CGRectGetMidY(sourceItem.frame));
-    CGPoint end = CGPointMake(placeAfter
-                              ? CGRectGetMaxX(targetItem.frame) - 3
-                              : CGRectGetMinX(targetItem.frame) + 3,
-                              CGRectGetMidY(targetItem.frame));
-    CGEventRef current = CGEventCreate(NULL);
-    CGPoint previous = current ? CGEventGetLocation(current) : start;
-    if (current) CFRelease(current);
-    usleep(120000); // Let the Settings drop finish before starting the system drag.
-    PostMouse(eventSource, kCGEventLeftMouseDown, start, kCGEventFlagMaskCommand);
-    usleep(180000);
-    for (int step = 1; step <= 16; step++) {
-        CGFloat progress = (CGFloat)step / 16.0;
-        CGPoint point = CGPointMake(start.x + (end.x - start.x) * progress,
-                                    start.y + (end.y - start.y) * progress);
-        PostMouse(eventSource, kCGEventLeftMouseDragged, point, kCGEventFlagMaskCommand);
-        usleep(30000);
-    }
-    usleep(120000);
-    PostMouse(eventSource, kCGEventLeftMouseUp, end, kCGEventFlagMaskCommand);
-    usleep(60000);
-    CGWarpMouseCursorPosition(previous);
-    CFRelease(eventSource);
-    usleep(400000);
-    return YES;
 }
 
 static BOOL HasMenuBarExtra(pid_t pid) {
@@ -325,79 +242,6 @@ static BOOL HasMenuBarExtra(pid_t pid) {
     if (!StatusItemLocation(statusItem, &buttonFrame, &displayBounds)) return nil;
     return StatusItemHost(HostedMenuBarItems(), NSBundle.mainBundle.bundleIdentifier,
                           buttonFrame, displayBounds);
-}
-
-- (void)moveBundleIdentifier:(NSString *)source
-  relativeToBundleIdentifier:(NSString *)target
-               placeAfter:(BOOL)placeAfter
-                completion:(void (^)(BOOL moved))completion {
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        BOOL moved = NO;
-        if (AXIsProcessTrusted() && ![source isEqualToString:target]) {
-            NSArray<MenuBarNativeItem *> *before = HostedMenuBarItems();
-            MenuBarNativeItem *sourceItem = nil;
-            MenuBarNativeItem *targetItem = nil;
-            if (FindUniquePair(before, source, target, &sourceItem, &targetItem)) {
-                if (HasRequestedOrder(sourceItem, targetItem, placeAfter)) {
-                    moved = YES;
-                } else if (DragItem(sourceItem, targetItem, placeAfter)) {
-                    NSArray<MenuBarNativeItem *> *after = HostedMenuBarItems();
-                    MenuBarNativeItem *afterSource = nil;
-                    MenuBarNativeItem *afterTarget = nil;
-                    moved = FindUniquePair(after, source, target, &afterSource, &afterTarget)
-                        && HasRequestedOrder(afterSource, afterTarget, placeAfter);
-                }
-            }
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{ completion(moved); });
-    });
-}
-
-- (void)moveBundleIdentifier:(NSString *)source
-       relativeToStatusItem:(NSStatusItem *)target
-                placeAfter:(BOOL)placeAfter
-                 completion:(void (^)(BOOL moved))completion {
-    // AppKit views are read on the caller's main actor. The AX scan and drag
-    // happen off-main; the post-drag AppKit position is read back on main.
-    CGRect buttonFrame, displayBounds;
-    BOOL hasLocation = StatusItemLocation(target, &buttonFrame, &displayBounds);
-    NSString *ownBundle = NSBundle.mainBundle.bundleIdentifier;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        BOOL moved = NO;
-        if (hasLocation && AXIsProcessTrusted() && ownBundle.length &&
-            ![source isEqualToString:ownBundle]) {
-            NSArray<MenuBarNativeItem *> *before = HostedMenuBarItems();
-            MenuBarNativeItem *targetItem = StatusItemHost(before, ownBundle,
-                                                            buttonFrame, displayBounds);
-            MenuBarNativeItem *sourceItem = targetItem
-                ? UniqueSourceOnScreen(before, source, targetItem) : nil;
-            if (sourceItem) {
-                if (HasRequestedOrder(sourceItem, targetItem, placeAfter)) {
-                    moved = YES;
-                } else if (DragItem(sourceItem, targetItem, placeAfter)) {
-                    __block CGRect updatedButtonFrame = CGRectZero;
-                    __block CGRect updatedDisplayBounds = CGRectZero;
-                    __block BOOL hasUpdatedLocation = NO;
-                    dispatch_sync(dispatch_get_main_queue(), ^{
-                        hasUpdatedLocation = StatusItemLocation(target, &updatedButtonFrame,
-                                                                &updatedDisplayBounds);
-                    });
-                    if (!hasUpdatedLocation) {
-                        dispatch_async(dispatch_get_main_queue(), ^{ completion(NO); });
-                        return;
-                    }
-                    NSArray<MenuBarNativeItem *> *after = HostedMenuBarItems();
-                    MenuBarNativeItem *afterTarget = StatusItemHost(after, ownBundle,
-                                                                     updatedButtonFrame,
-                                                                     updatedDisplayBounds);
-                    MenuBarNativeItem *afterSource = afterTarget
-                        ? UniqueSourceOnScreen(after, source, afterTarget) : nil;
-                    moved = afterSource && HasRequestedOrder(afterSource, afterTarget, placeAfter);
-                }
-            }
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{ completion(moved); });
-    });
 }
 
 - (nullable id)activateAllowingBundleIdentifiers:(NSArray<NSString *> *)bundleIdentifiers

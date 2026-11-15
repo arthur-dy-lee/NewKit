@@ -1,71 +1,120 @@
 import Foundation
 
-/// The settings rows read left to right in the same order as menu bar items.
-/// When expanded, the hidden section occupies the left side of the visible section.
 enum MenuBarPhysicalOrder {
     static let dividerID = "\0NewKit.MenuBarOrganizer.Control\0"
 
-    struct Move: Equatable {
-        enum Target: Equatable {
-            case app(String)
-            case control
-        }
-
-        let sourceID: String
-        let target: Target
-        let placeAfter: Bool
+    struct Placement: Equatable {
+        let source: String
+        let target: String
+        let after: Bool
     }
 
-    static func displayedIDs(visible: [String], hidden: [String], expanded: Bool) -> [String] {
-        (expanded ? hidden : []) + visible
+    struct Plan: Equatable {
+        let visible: [String]
+        let hidden: [String]
+        let seatHidden: Bool
+        let placement: Placement?
+
+        var isEmpty: Bool { visible.isEmpty && hidden.isEmpty && placement == nil }
+
+        /// The system stores distances from the right edge. Only assign new
+        /// distances to the icons whose saved order or group needs restoring.
+        func updates(
+            positions: [String: Double], keys: [String: String]
+        ) -> [String: Double] {
+            var result = positions
+            func restore(_ ids: [String]) {
+                let items = ids.compactMap { keys[$0] }
+                let slots = items.compactMap { result[$0] }.sorted(by: >)
+                guard slots.count == items.count, Set(slots).count == slots.count else { return }
+                for (key, slot) in zip(items, slots) { result[key] = slot }
+            }
+            restore(visible)
+            if seatHidden, let divider = keys[MenuBarPhysicalOrder.dividerID],
+               let anchor = result[divider] {
+                let items = hidden.compactMap { keys[$0] }
+                let itemKeys = Set(items)
+                let boundary = positions.lazy.filter {
+                    !itemKeys.contains($0.key) && $0.value > anchor
+                }.map(\.value).min() ?? anchor + 64
+                let spacing = (boundary - anchor) / Double(items.count + 1)
+                for (index, key) in items.reversed().enumerated() {
+                    result[key] = anchor + spacing * Double(index + 1)
+                }
+            } else {
+                restore(hidden)
+            }
+            if let placement, let source = keys[placement.source],
+               let target = keys[placement.target], let anchor = result[target] {
+                let others = result.lazy.filter { $0.key != source }.map(\.value)
+                let boundary = placement.after
+                    ? others.filter { $0 < anchor }.max() ?? 0
+                    : others.filter { $0 > anchor }.min() ?? anchor + 64
+                result[source] = anchor + (boundary - anchor) / 2
+            }
+            return result.filter { positions[$0.key] != $0.value }
+        }
     }
 
-    /// Keep the reveal control between the two sections. It is a fixed menu
-    /// bar item, so all moves use an app as their source. Checking only app
-    /// order misses an icon that is on the wrong side of the control.
-    static func movesToMatch(
-        visible: [String], hidden: [String], expanded: Bool,
-        positions: [String: CGFloat], dividerX: CGFloat
-    ) -> [Move] {
-        let availableHidden = (expanded ? hidden : []).filter { positions[$0] != nil }
-        let availableVisible = visible.filter { positions[$0] != nil }
-        let desiredX = availableHidden.compactMap { positions[$0] }
-            + [dividerX] + availableVisible.compactMap { positions[$0] }
-        guard !zip(desiredX, desiredX.dropFirst()).allSatisfy({ $0 < $1 }) else {
-            return []
-        }
-
-        // Work outwards from the control. Each target has already reached its
-        // correct side when the next move runs. The bridge skips pairs already
-        // in order, and reads fresh coordinates for every physical move.
-        var moves: [Move] = []
-        for index in availableHidden.indices.reversed() {
-            let target: Move.Target = index + 1 < availableHidden.count
-                ? .app(availableHidden[index + 1]) : .control
-            moves.append(Move(sourceID: availableHidden[index], target: target,
-                              placeAfter: false))
-        }
-        for index in availableVisible.indices {
-            let target: Move.Target = index > 0
-                ? .app(availableVisible[index - 1]) : .control
-            moves.append(Move(sourceID: availableVisible[index], target: target,
-                              placeAfter: true))
-        }
-        return moves
+    /// Use the system's order as the starting point. Saved IDs take up only
+    /// their own slots, including when a new status item appears between them.
+    static func applyingSavedOrder(_ saved: [String], to system: [String]) -> [String] {
+        let available = Set(system)
+        let ordered = unique(saved).filter { available.contains($0) }
+        let configured = Set(ordered)
+        var slots = ordered.makeIterator()
+        return system.map { configured.contains($0) ? slots.next() ?? $0 : $0 }
     }
 
-    /// A right-to-left insertion pass can restore any permutation while keeping
-    /// the already ordered suffix in place. The native bridge skips pairs that
-    /// already have the correct relative position.
-    static func movesToMatch(_ desired: [String], positions: [String: CGFloat]) -> [(String, String)] {
-        let available = desired.filter { positions[$0] != nil }
-        guard available.count > 1 else { return [] }
-        let alreadyOrdered = zip(available, available.dropFirst()).allSatisfy {
-            positions[$0.0]! < positions[$0.1]!
+    /// Keep saved positions for apps that are not currently in the settings list.
+    static func savingOrder(_ displayed: [String], previous: [String], including: [String]) -> [String] {
+        let saved = unique(previous + including)
+        let configured = Set(saved)
+        let arranged = displayed.filter { configured.contains($0) }
+        let visible = Set(arranged)
+        var slots = arranged.makeIterator()
+        return saved.map { visible.contains($0) ? slots.next() ?? $0 : $0 }
+    }
+
+    static func plan(
+        visible: [String], hidden: [String], saved: [String],
+        positions: [String: CGFloat], placement: Placement?
+    ) -> Plan {
+        func observed(_ ids: [String]) -> [String] {
+            ids.compactMap { id in positions[id].map { (id, $0) } }
+                .sorted { $0.1 != $1.1 ? $0.1 < $1.1 : $0.0 < $1.0 }
+                .map(\.0)
         }
-        guard !alreadyOrdered else { return [] }
-        return (0..<(available.count - 1)).reversed().map {
-            (available[$0], available[$0 + 1])
+        let systemVisible = observed(visible)
+        let savedIDs = Set(saved)
+        let configuredVisible = systemVisible.filter { savedIDs.contains($0) }
+        let desiredVisible = applyingSavedOrder(saved, to: configuredVisible)
+        let systemHidden = observed(hidden)
+        let desiredHidden = applyingSavedOrder(saved, to: systemHidden)
+        let seatHidden = positions[dividerID].map { divider in
+            systemHidden.contains { (positions[$0] ?? divider) >= divider }
+        } ?? false
+        let pending = placement.flatMap { placement -> Placement? in
+            for lane in [systemVisible, systemHidden] {
+                guard let source = lane.firstIndex(of: placement.source),
+                      let target = lane.firstIndex(of: placement.target) else { continue }
+                let orderChanging = lane == systemVisible
+                    ? configuredVisible != desiredVisible : systemHidden != desiredHidden || seatHidden
+                let alreadyInPlace = source == target + (placement.after ? 1 : -1)
+                return alreadyInPlace && !orderChanging ? nil : placement
+            }
+            return nil
         }
+        return Plan(
+            visible: configuredVisible == desiredVisible ? [] : desiredVisible,
+            hidden: systemHidden == desiredHidden && !seatHidden ? [] : desiredHidden,
+            seatHidden: seatHidden,
+            placement: pending
+        )
+    }
+
+    private static func unique(_ ids: [String]) -> [String] {
+        var seen = Set<String>()
+        return ids.filter { seen.insert($0).inserted }
     }
 }
